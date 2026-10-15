@@ -145,7 +145,42 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The executable is written below `build/bin/<configuration>/loupe`.
+The executable is written below `build/bin/<configuration>/loupe`. For a
+multi-config generator, pass `--config Release` to the build and `-C Release`
+to CTest. MSVC builds use UTF-8 for source and execution character sets.
+
+### Nix development environment
+
+With Nix flakes enabled, enter the pinned development shell:
+
+```sh
+nix develop
+cmake -S . -B build-nix -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-nix --parallel
+ctest --test-dir build-nix --output-on-failure
+./build-nix/bin/Debug/loupe --help
+```
+
+The flake supports x86_64/aarch64 Linux and aarch64 macOS, using GCC on Linux
+and LLVM/libc++ on macOS. The pinned nixpkgs no longer supports Intel macOS. It provides CMake, Ninja, Git, patch, ccache, clang tools,
+cppcheck, Doxygen, gcovr, and actionlint. `flake.lock` pins nixpkgs; update it
+explicitly with `nix flake update`. Use a separate build directory when switching
+between host and Nix toolchains. The shell pins development tools, not an offline
+Nix package: CPM still downloads project dependencies on first configuration.
+`nix build` is not provided.
+
+Useful CMake options (all prefixed with `Loupe_`):
+
+- `ENABLE_UNIT_TESTING`: defaults to ON for a top-level build.
+- `ENABLE_CCACHE`: defaults to ON; OFF disables automatic ccache discovery.
+  An explicitly supplied `CMAKE_CXX_COMPILER_LAUNCHER` always takes precedence.
+- `ENABLE_CLANG_TIDY` / `ENABLE_CPPCHECK`: analyze first-party targets only;
+  requested tools must be installed. `CLANGTIDY_EXTRA_ARGS` accepts a
+  semicolon-separated list of extra arguments.
+- `ENABLE_CODE_COVERAGE`: instrument application, library, and tests with
+  GCC/Clang coverage, without instrumenting dependencies.
+- `ENABLE_ASAN` / `ENABLE_LTO`: opt into sanitization or IPO support checks.
+
 Terminal frames use DEC synchronized output so supporting emulators can display
 each redraw atomically and avoid visible tearing.
 

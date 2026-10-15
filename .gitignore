@@ -1,4 +1,6 @@
 [Bb]uild/*
+/build-*/
+/.direnv/
 .cpm-cache/*
 [Dd]ocs/*
 CMakeCache.*

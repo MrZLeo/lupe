@@ -4,10 +4,7 @@ cmake_minimum_required(VERSION 3.25)
 # Project details
 #
 
-project(
-  ${CMAKE_PROJECT_NAME}Tests
-  LANGUAGES CXX
-)
+# Keep the parent's project scope so target helpers use Loupe's options.
 
 verbose_message("Adding tests under ${CMAKE_PROJECT_NAME}Tests...")
 
@@ -55,30 +52,7 @@ foreach(file ${test_sources})
   # Setup code coverage if enabled
   #
 
-  if (${CMAKE_PROJECT_NAME}_ENABLE_CODE_COVERAGE)
-    get_target_property(_project_test_lib_type ${${CMAKE_PROJECT_NAME}_TEST_LIB} TYPE)
-    if(_project_test_lib_type STREQUAL "INTERFACE_LIBRARY")
-      set(_project_test_lib_visibility INTERFACE)
-    else()
-      set(_project_test_lib_visibility PUBLIC)
-    endif()
-
-    target_compile_options(
-      ${${CMAKE_PROJECT_NAME}_TEST_LIB}
-      ${_project_test_lib_visibility}
-      -O0
-      -g
-      -fprofile-arcs
-      -ftest-coverage
-    )
-    target_link_options(
-      ${${CMAKE_PROJECT_NAME}_TEST_LIB}
-      ${_project_test_lib_visibility}
-      -fprofile-arcs
-      -ftest-coverage
-    )
-    verbose_message("Code coverage is enabled and provided with GCC.")
-  endif()
+  project_enable_coverage(${test_name}_Tests)
 
   target_link_libraries(
     ${test_name}_Tests

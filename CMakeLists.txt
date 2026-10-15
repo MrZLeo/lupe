@@ -22,9 +22,6 @@ include(cmake/CPM.cmake)
 include(cmake/ProjectStandard.cmake)
 
 project_configure_cxx_standard(23)
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Debug")
-endif()
 message(STATUS "Started CMake for ${PROJECT_NAME} v${PROJECT_VERSION}...\n")
 
 if (UNIX)
@@ -117,9 +114,9 @@ endif()
 set_target_properties(
   ${PROJECT_NAME}
   PROPERTIES
-  ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}"
-  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}"
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE}"
+  ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib/$<CONFIG>"
+  LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib/$<CONFIG>"
+  RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<CONFIG>"
 )
 if(${PROJECT_NAME}_BUILD_EXECUTABLE)
   set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME loupe)
@@ -128,8 +125,8 @@ if(${PROJECT_NAME}_BUILD_EXECUTABLE AND ${PROJECT_NAME}_ENABLE_UNIT_TESTING)
   set_target_properties(
     ${PROJECT_NAME}_LIB
     PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}"
+    ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib/$<CONFIG>"
+    LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib/$<CONFIG>"
     OUTPUT_NAME ${PROJECT_NAME}
   )
 endif()
@@ -150,7 +147,13 @@ else()
   endif()
 endif()
 include(cmake/CompilerWarnings.cmake)
-set_project_warnings(${PROJECT_NAME})
+foreach(project_target IN ITEMS ${PROJECT_NAME} ${PROJECT_NAME}_LIB)
+  if(TARGET ${project_target})
+    set_project_warnings(${project_target})
+    project_enable_static_analysis(${project_target})
+    project_enable_coverage(${project_target})
+  endif()
+endforeach()
 verbose_message("Applied compiler warnings. Using standard C++${PROJECT_CXX_STANDARD}.\n")
 
 #
@@ -358,7 +361,9 @@ verbose_message("Project is now aliased as ${PROJECT_NAME}::${PROJECT_NAME}.\n")
 # Format the project using the `clang-format` target (i.e: cmake --build build --target clang-format)
 #
 
-add_clang_format_target()
+if(PROJECT_IS_TOP_LEVEL)
+  add_clang_format_target()
+endif()
 
 #
 # Install library for easy downstream inclusion

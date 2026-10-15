@@ -1,82 +1,63 @@
-#
-# Project settings
-#
+option(${PROJECT_NAME}_BUILD_EXECUTABLE "Build the terminal viewer rather than a library." ON)
+option(${PROJECT_NAME}_BUILD_HEADERS_ONLY "Expose headers as an INTERFACE target (not a parser implementation)." OFF)
+option(${PROJECT_NAME}_USE_ALT_NAMES "Use lowercase include directory names." ON)
+option(${PROJECT_NAME}_ENABLE_UNIT_TESTING "Build tests with Catch2." ${PROJECT_IS_TOP_LEVEL})
+option(${PROJECT_NAME}_WARNINGS_AS_ERRORS "Treat project compiler warnings as errors." OFF)
+option(${PROJECT_NAME}_ENABLE_CLANG_TIDY "Analyze first-party sources with clang-tidy." OFF)
+option(${PROJECT_NAME}_ENABLE_CPPCHECK "Analyze first-party sources with cppcheck." OFF)
+option(${PROJECT_NAME}_ENABLE_CODE_COVERAGE "Instrument project targets and tests for coverage." OFF)
+option(${PROJECT_NAME}_ENABLE_DOXYGEN "Build API documentation." OFF)
+option(${PROJECT_NAME}_VERBOSE_OUTPUT "Print verbose configuration details." OFF)
+option(${PROJECT_NAME}_GENERATE_EXPORT_HEADER "Generate a library export header." OFF)
+option(${PROJECT_NAME}_ENABLE_LTO "Enable interprocedural optimization." OFF)
+option(${PROJECT_NAME}_ENABLE_CCACHE "Use ccache unless a compiler launcher is explicitly set." ON)
+option(${PROJECT_NAME}_ENABLE_ASAN "Enable AddressSanitizer." OFF)
 
-option(${PROJECT_NAME}_BUILD_EXECUTABLE "Build the project as an executable, rather than a library." ON)
-option(${PROJECT_NAME}_BUILD_HEADERS_ONLY "Build the project as a header-only library." OFF)
-option(${PROJECT_NAME}_USE_ALT_NAMES "Use alternative names for the project, such as naming the include directory all lowercase." ON)
-
-#
-# Compiler options
-#
-
-option(${PROJECT_NAME}_WARNINGS_AS_ERRORS "Treat compiler warnings as errors." OFF)
-
-#
-# Unit testing
-#
-# This template uses Catch2 via CPM.cmake when tests are enabled.
-
-option(${PROJECT_NAME}_ENABLE_UNIT_TESTING "Enable unit tests for the projects (from the `test` subfolder)." ON)
-
-#
-# Static analyzers
-#
-# Currently supporting: Clang-Tidy, Cppcheck.
-
-option(${PROJECT_NAME}_ENABLE_CLANG_TIDY "Enable static analysis with Clang-Tidy." OFF)
-option(${PROJECT_NAME}_ENABLE_CPPCHECK "Enable static analysis with Cppcheck." OFF)
-
-#
-# Code coverage
-#
-
-option(${PROJECT_NAME}_ENABLE_CODE_COVERAGE "Enable code coverage through GCC." OFF)
-
-#
-# Doxygen
-#
-
-option(${PROJECT_NAME}_ENABLE_DOXYGEN "Enable Doxygen documentation builds of source." OFF)
-
-#
-# Miscelanious options
-#
-
-# Generate compile_commands.json for clang based tools
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-option(${PROJECT_NAME}_VERBOSE_OUTPUT "Enable verbose output, allowing for a better understanding of each step taken." ON)
-option(${PROJECT_NAME}_GENERATE_EXPORT_HEADER "Create a `project_export.h` file containing all exported symbols." OFF)
-
-# Export all symbols when building a shared library
-if(BUILD_SHARED_LIBS)
-  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS OFF)
-  set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-  set(CMAKE_VISIBILITY_INLINES_HIDDEN 1)
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build configuration" FORCE)
 endif()
 
-option(${PROJECT_NAME}_ENABLE_LTO "Enable Interprocedural Optimization, aka Link Time Optimization (LTO)." OFF)
-if(${PROJECT_NAME}_ENABLE_LTO)
-  include(CheckIPOSupported)
-  check_ipo_supported(RESULT result OUTPUT output)
-  if(result)
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
-  else()
-    message(SEND_ERROR "IPO is not supported: ${output}.")
+# Apply before dependencies and tests are created. Unicode escape sequences in
+# ordinary string literals must produce UTF-8, including Kitty placeholders.
+if(MSVC)
+  add_compile_options(/utf-8 /Zc:preprocessor /Zc:__cplusplus)
+endif()
+
+if(${PROJECT_NAME}_ENABLE_CCACHE AND NOT DEFINED CMAKE_CXX_COMPILER_LAUNCHER)
+  find_program(CCACHE ccache)
+  if(CCACHE)
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE}")
   endif()
 endif()
 
-
-option(${PROJECT_NAME}_ENABLE_CCACHE "Enable the usage of Ccache, in order to speed up rebuild times." ON)
-find_program(CCACHE_FOUND ccache)
-if(CCACHE_FOUND)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+if(${PROJECT_NAME}_ENABLE_LTO)
+  include(CheckIPOSupported)
+  check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error LANGUAGES CXX)
+  if(NOT ipo_supported)
+    message(FATAL_ERROR "IPO is not supported: ${ipo_error}")
+  endif()
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 endif()
 
-option(${PROJECT_NAME}_ENABLE_ASAN "Enable Address Sanitize to detect memory error." OFF)
+if(${PROJECT_NAME}_ENABLE_CODE_COVERAGE AND (MSVC OR NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang"))
+  message(FATAL_ERROR "Code coverage requires GCC or Clang with GNU-style flags.")
+endif()
+
 if(${PROJECT_NAME}_ENABLE_ASAN)
+  if(MSVC)
+    add_compile_options(/fsanitize=address)
+  else()
     add_compile_options(-fsanitize=address)
     add_link_options(-fsanitize=address)
+  endif()
 endif()
+
+function(project_enable_coverage target)
+  if(${PROJECT_NAME}_ENABLE_CODE_COVERAGE)
+    get_target_property(target_type ${target} TYPE)
+    if(NOT target_type STREQUAL "INTERFACE_LIBRARY")
+      target_compile_options(${target} PRIVATE -O0 -g --coverage)
+      target_link_options(${target} PUBLIC --coverage)
+    endif()
+  endif()
+endfunction()
