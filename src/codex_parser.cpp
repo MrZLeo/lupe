@@ -117,6 +117,20 @@ std::string inline_mime_type(std::string_view value) {
   return std::string{value.substr(0, separator)};
 }
 
+std::shared_ptr<const std::string> inline_base64_data(std::string_view value) {
+  constexpr std::string_view prefix{"data:"};
+  if (!value.starts_with(prefix)) {
+    return nullptr;
+  }
+
+  const std::size_t separator = value.find(',');
+  if (separator == std::string_view::npos
+      || !value.substr(0, separator).ends_with(";base64")) {
+    return nullptr;
+  }
+  return std::make_shared<const std::string>(value.substr(separator + 1));
+}
+
 ContentBlock parse_content_block(element value) {
   if (value.type() == element_type::STRING) {
     std::string_view text;
@@ -134,6 +148,7 @@ ContentBlock parse_content_block(element value) {
     std::string url =
         first_string_at(value, {"/image_url", "/url"}).value_or("");
     const bool inline_data = std::string_view{url}.starts_with("data:");
+    const auto base64_data = inline_base64_data(url);
     std::string mime_type =
         first_string_at(value, {"/mime_type", "/mimeType"}).value_or("");
     if (mime_type.empty() && inline_data) {
@@ -146,6 +161,7 @@ ContentBlock parse_content_block(element value) {
         .mime_type = std::move(mime_type),
         .url = std::move(url),
         .inline_data = inline_data,
+        .base64_data = base64_data,
     };
   }
 
@@ -457,6 +473,7 @@ ImageContent image_generation_result(std::string result) {
         .mime_type = inline_mime_type(result),
         .url = {},
         .inline_data = true,
+        .base64_data = inline_base64_data(result),
     };
   }
 
@@ -468,6 +485,7 @@ ImageContent image_generation_result(std::string result) {
         .mime_type = {},
         .url = std::move(result),
         .inline_data = false,
+        .base64_data = nullptr,
     };
   }
 
@@ -475,6 +493,9 @@ ImageContent image_generation_result(std::string result) {
       .mime_type = {},
       .url = {},
       .inline_data = !result.empty(),
+      .base64_data = result.empty()
+                       ? nullptr
+                       : std::make_shared<const std::string>(std::move(result)),
   };
 }
 
@@ -583,10 +604,12 @@ void append_legacy_images(element payload, std::string_view pointer,
   for (const auto image : images) {
     std::string_view url;
     if (!image.get_string().get(url)) {
+      const bool inline_data = url.starts_with("data:");
       content.emplace_back(ImageContent{
-          .mime_type = {},
-          .url = std::string{url},
-          .inline_data = false,
+          .mime_type = inline_data ? inline_mime_type(url) : std::string{},
+          .url = inline_data ? std::string{} : std::string{url},
+          .inline_data = inline_data,
+          .base64_data = inline_base64_data(url),
       });
     }
   }
@@ -891,9 +914,29 @@ std::string comparable_message_content(const MessageEvent &message) {
 }
 
 bool same_message(const MessageEvent &left, const MessageEvent &right) {
-  return left.role == right.role
-      && left.phase == right.phase
-      && comparable_message_content(left) == comparable_message_content(right);
+  if (left.role != right.role
+      || left.phase != right.phase
+      || left.content.size() != right.content.size()
+      || comparable_message_content(left)
+             != comparable_message_content(right)) {
+    return false;
+  }
+  // Inline URLs are normalized away. Compare their retained payloads too,
+  // without copying large base64 strings into the comparison key.
+  for (std::size_t index = 0; index < left.content.size(); ++index) {
+    const auto *left_image = std::get_if<ImageContent>(&left.content[index]);
+    const auto *right_image = std::get_if<ImageContent>(&right.content[index]);
+    if (left_image == nullptr || right_image == nullptr) {
+      continue;
+    }
+    const auto &left_data = left_image->base64_data;
+    const auto &right_data = right_image->base64_data;
+    if (left_data != right_data
+        && (!left_data || !right_data || *left_data != *right_data)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 const MessageEvent *message_event(const RecordIR &record) {

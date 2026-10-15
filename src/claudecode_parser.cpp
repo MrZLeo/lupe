@@ -113,6 +113,13 @@ ImageContent parse_image_content(element block) {
   const bool has_inline_data = element_at(block, "/source/data", inline_data)
                             || element_at(block, "/data", inline_data);
   image.inline_data = source_type == "base64" || has_inline_data;
+  if (image.inline_data) {
+    auto base64_data = first_string_at(block, {"/source/data", "/data"});
+    if (base64_data) {
+      image.base64_data =
+          std::make_shared<const std::string>(std::move(*base64_data));
+    }
+  }
 
   if (!image.inline_data) {
     image.url = first_string_at(block, {"/source/url", "/url"}).value_or("");

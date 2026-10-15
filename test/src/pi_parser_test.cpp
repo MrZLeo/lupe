@@ -45,7 +45,10 @@ TEST_CASE("parse Pi messages into ordered semantic events", "[pi_parser]") {
   const auto &user = std::get<loupe::MessageEvent>(user_events[0].payload);
   REQUIRE(user.role == loupe::Role::User);
   REQUIRE(user.content.size() == 2);
-  REQUIRE(std::get<loupe::ImageContent>(user.content[1]).inline_data);
+  const auto &image = std::get<loupe::ImageContent>(user.content[1]);
+  REQUIRE(image.inline_data);
+  REQUIRE(image.base64_data);
+  REQUIRE(*image.base64_data == "eA==");
 
   const auto &assistant_events = parsed.session.records[2].events;
   REQUIRE(assistant_events.size() == 5);
@@ -66,6 +69,10 @@ TEST_CASE("parse Pi messages into ordered semantic events", "[pi_parser]") {
   REQUIRE(
       std::get<loupe::UsageEvent>(assistant_events[4].payload).reasoning_tokens
       == 3);
+
+  const auto messages = loupe::make_display_messages(parsed.session);
+  REQUIRE(messages.front().images.size() == 1);
+  REQUIRE(messages.front().images.front().base64_data == image.base64_data);
 }
 
 TEST_CASE("parse Pi tools, compaction, metadata, and active branches",

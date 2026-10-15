@@ -129,12 +129,14 @@ parse_basic_content_block(simdjson::dom::element block) {
 
   if (type == "image") {
     simdjson::dom::element data;
+    auto base64_data = string_at(block, "/data");
     return ImageContent{
         .mime_type = string_at(block, "/mimeType").value_or(""),
-        // Pi stores inline base64 in `data`. Keep the large payload in
-        // raw_json.
         .url = string_at(block, "/url").value_or(""),
         .inline_data = element_at(block, "/data", data),
+        .base64_data = base64_data ? std::make_shared<const std::string>(
+                                         std::move(*base64_data))
+                                   : nullptr,
     };
   }
 

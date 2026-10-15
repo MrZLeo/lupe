@@ -374,6 +374,29 @@ TEST_CASE("Claude Code continuation switches to the current session id",
   REQUIRE(selected == std::vector<std::size_t>{0, 1, 2, 3});
 }
 
+TEST_CASE("Claude Code inline images retain their payloads",
+          "[session_parser][claudecode]") {
+  const auto parsed = loupe::parse_session_content(
+      R"({"type":"user","uuid":"u1","parentUuid":null,"sessionId":"claude-session","timestamp":"2026-07-23T00:00:00Z","cwd":"/repo","message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"eA=="}}]}})",
+      loupe::LogFormat::ClaudeCode);
+
+  REQUIRE_FALSE(parsed.has_fatal_error());
+  const auto *message =
+      first_event<loupe::MessageEvent>(parsed.session.records.front());
+  REQUIRE(message != nullptr);
+  REQUIRE(message->content.size() == 1);
+  const auto &image = std::get<loupe::ImageContent>(message->content.front());
+  REQUIRE(image.mime_type == "image/png");
+  REQUIRE(image.inline_data);
+  REQUIRE(image.base64_data);
+  REQUIRE(*image.base64_data == "eA==");
+
+  const auto displayed = loupe::make_display_messages(parsed.session);
+  REQUIRE(displayed.size() == 1);
+  REQUIRE(displayed.front().images.size() == 1);
+  CHECK(displayed.front().images.front().base64_data == image.base64_data);
+}
+
 TEST_CASE("Claude Code metadata records advance the active branch",
           "[session_parser][claudecode]") {
   const auto parsed = loupe::parse_session_content(

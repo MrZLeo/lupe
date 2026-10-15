@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -34,6 +35,9 @@ struct ImageContent {
   std::string mime_type;
   std::string url;
   bool inline_data{false};
+  // Shared with the display projection so large inline images are not copied
+  // again when the TUI renders them inline.
+  std::shared_ptr<const std::string> base64_data;
 };
 
 struct UnknownContent {

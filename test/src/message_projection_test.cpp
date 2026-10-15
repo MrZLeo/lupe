@@ -90,3 +90,27 @@ TEST_CASE("Other metadata still follows the show_metadata option",
   REQUIRE(messages.size() == 1);
   REQUIRE(messages.front().content == "hidden value");
 }
+
+TEST_CASE("Image references survive display projection",
+          "[message_projection]") {
+  loupe::SessionIR session;
+  loupe::RecordIR record;
+  record.native_type = "response_item";
+  record.events.push_back(loupe::EventIR{
+      .payload =
+          loupe::MessageEvent{
+              .role = loupe::Role::User,
+              .content = {loupe::ImageContent{
+                  .mime_type = "image/png",
+                  .url = "https://example.com/image.png",
+              }},
+          },
+  });
+  session.records.push_back(std::move(record));
+
+  const auto messages = loupe::make_display_messages(session);
+  REQUIRE(messages.size() == 1);
+  REQUIRE(messages.front().images.size() == 1);
+  CHECK(messages.front().images.front().mime_type == "image/png");
+  CHECK(messages.front().images.front().url == "https://example.com/image.png");
+}

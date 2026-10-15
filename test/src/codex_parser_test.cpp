@@ -5,6 +5,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstddef>
+#include <string>
 #include <variant>
 
 TEST_CASE("parse Codex rollout records into semantic events",
@@ -143,6 +144,39 @@ TEST_CASE("keep legacy Codex messages when image content differs",
           == "https://example.com/legacy.png");
 }
 
+TEST_CASE(
+    "retain Codex inline image payloads when deduplicating legacy messages",
+    "[codex_parser]") {
+  for (const std::string legacy_data : {"eA==", "eQ=="}) {
+    const auto parsed = loupe::parse_session_content(
+        std::string{
+            R"({"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"question"},{"type":"input_image","image_url":"data:image/png;base64,eA=="}]}})"}
+            + "\n"
+            + R"({"type":"event_msg","payload":{"type":"user_message","message":"question","images":["data:image/png;base64,)"
+            + legacy_data
+            + R"("]}})",
+        loupe::LogFormat::Codex);
+    REQUIRE_FALSE(parsed.has_fatal_error());
+    const auto &canonical = std::get<loupe::MessageEvent>(
+        parsed.session.records[0].events[0].payload);
+    const auto &image = std::get<loupe::ImageContent>(canonical.content[1]);
+    REQUIRE(image.base64_data);
+    CHECK(*image.base64_data == "eA==");
+    CHECK(image.url.empty());
+    if (legacy_data == "eA==") {
+      CHECK(parsed.session.records[1].events.empty());
+    } else {
+      REQUIRE(parsed.session.records[1].events.size() == 1);
+      const auto &legacy = std::get<loupe::MessageEvent>(
+          parsed.session.records[1].events[0].payload);
+      const auto &legacy_image =
+          std::get<loupe::ImageContent>(legacy.content[1]);
+      REQUIRE(legacy_image.base64_data);
+      CHECK(*legacy_image.base64_data == legacy_data);
+    }
+  }
+}
+
 TEST_CASE("parse extended Codex response items into semantic events",
           "[codex_parser]") {
   const auto parsed = loupe::parse_session_content(
@@ -200,6 +234,8 @@ TEST_CASE("parse extended Codex response items into semantic events",
   REQUIRE(image.mime_type == "image/png");
   REQUIRE(image.url.empty());
   REQUIRE(image.inline_data);
+  REQUIRE(image.base64_data);
+  REQUIRE(*image.base64_data == "eA==");
 
   REQUIRE(std::get<loupe::CompactionEvent>(
               parsed.session.records[5].events[0].payload)

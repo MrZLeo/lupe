@@ -190,6 +190,27 @@ tar -xzf loupe-v0.5.0-linux-x86_64.tar.gz
 - `b` / `-`: return to the file browser
 - `q`: quit
 
+### Inline images
+
+Images in Pi, Claude Code, and Codex messages (including tool results) render
+**directly inside the transcript** using the Kitty Graphics Protocol. No
+preview key, external viewer, or temporary image files are involved. Images
+scroll, clip, and fold with their message; only visible images are uploaded,
+and their terminal resources are released when hidden or when Loupe exits.
+
+This requires a terminal that supports Kitty graphics **and Unicode
+placeholders**, such as a recent Kitty. Each image fits, preserving its aspect
+ratio, into a region up to 80 columns by 12 rows. PNG, JPEG, BMP, and the first
+frame of GIF images are supported, from inline Base64 data or local files.
+Relative paths are resolved against the session working directory, then the
+log directory, then Loupe's working directory. Remote URLs are **not fetched**;
+unsupported formats or missing data produce an inline text diagnostic. Input
+is limited to 32 MiB per image and decoded images to 16 megapixels.
+
+Inside tmux, enable `set -g allow-passthrough on` and true-color support for
+your outer terminal. Loupe wraps graphics commands for tmux automatically;
+placeholder cells stay in the normal TUI text stream.
+
 ## License
 
 Loupe is distributed under the terms in [LICENSE](LICENSE). The bundled

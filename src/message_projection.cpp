@@ -66,6 +66,24 @@ join_content(const std::vector<ContentBlock> &blocks, bool show_unknown) {
   return joined;
 }
 
+std::vector<DisplayImage>
+content_images(const std::vector<ContentBlock> &blocks) {
+  std::vector<DisplayImage> images;
+  for (const auto &block : blocks) {
+    const auto *image = std::get_if<ImageContent>(&block);
+    if (image == nullptr) {
+      continue;
+    }
+    images.push_back(DisplayImage{
+        .mime_type = image->mime_type,
+        .url = image->url,
+        .inline_data = image->inline_data,
+        .base64_data = image->base64_data,
+    });
+  }
+  return images;
+}
+
 std::string tool_call_annotation(const ToolCallEvent &call) {
   std::string rendered = "call";
   if (!call.name_space.empty()) {
@@ -188,6 +206,7 @@ LogMessage make_message(const MessageEvent &message, const EventIR &event,
       .timestamp = event_timestamp(event, record),
       .raw_type = record.native_type,
       .source_line = record.source_line,
+      .images = content_images(message.content),
   };
 }
 
@@ -314,6 +333,7 @@ make_display_messages(const SessionIR &session, const DisplayOptions &options) {
             .timestamp = event_timestamp(event, record),
             .raw_type = record.native_type,
             .source_line = record.source_line,
+            .images = content_images(tool_result->output),
         });
         last_message = messages.size() - 1;
         continue;

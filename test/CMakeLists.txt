@@ -103,6 +103,19 @@ foreach(file ${test_sources})
       PRIVATE
         ftxui::dom
     )
+  elseif(test_name STREQUAL "inline_images_test")
+    target_sources(
+      ${test_name}_Tests
+      PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/inline_images.cpp"
+        "${CMAKE_SOURCE_DIR}/src/line_frame.cpp"
+    )
+    target_include_directories(
+      ${test_name}_Tests
+      PRIVATE
+        "${CMAKE_SOURCE_DIR}/src"
+    )
+    target_link_libraries(${test_name}_Tests PRIVATE ftxui::dom)
   elseif(test_name STREQUAL "message_overview_test")
     target_sources(
       ${test_name}_Tests

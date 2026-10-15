@@ -5,6 +5,7 @@ set(sources
   src/deepseek_harness_parser.cpp
   src/format_detector.cpp
   src/jsonl_reader.cpp
+  src/kitty_graphics.cpp
   src/log_format.cpp
   src/log_parser.cpp
   src/markdown_text.cpp
@@ -15,6 +16,7 @@ set(sources
   src/session_ir.cpp
   src/session_parser.cpp
   src/session_validation.cpp
+  src/stb_image.cpp
   src/structured_text.cpp
   src/synchronized_output.cpp
   src/zstd_decode.cpp
@@ -22,6 +24,8 @@ set(sources
 
 set(exe_sources
   src/main.cpp
+  src/inline_images.cpp
+  src/inline_images.hpp
   src/line_frame.cpp
   src/line_frame.hpp
   src/message_overview.cpp
@@ -31,6 +35,7 @@ set(exe_sources
 
 set(headers
   include/loupe/format_detector.hpp
+  include/loupe/kitty_graphics.hpp
   include/loupe/log_format.hpp
   include/loupe/log_message.hpp
   include/loupe/log_parser.hpp
@@ -49,6 +54,8 @@ set(test_sources
   src/codex_parser_test.cpp
   src/deepseek_harness_parser_test.cpp
   src/format_detector_test.cpp
+  src/inline_images_test.cpp
+  src/kitty_graphics_test.cpp
   src/log_parser_test.cpp
   src/message_projection_test.cpp
   src/message_overview_test.cpp

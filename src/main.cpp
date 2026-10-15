@@ -16,6 +16,7 @@
 #include <ftxui/screen/string.hpp>
 #include <ftxui/screen/terminal.hpp>
 #include <iostream>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -23,7 +24,9 @@
 #include <utility>
 #include <vector>
 
+#include "inline_images.hpp"
 #include "line_frame.hpp"
+#include "loupe/kitty_graphics.hpp"
 #include "loupe/log_format.hpp"
 #include "loupe/log_message.hpp"
 #include "loupe/log_parser.hpp"
@@ -63,6 +66,11 @@ struct StyledSegment {
 
 using DisplayLine = std::vector<StyledSegment>;
 
+struct ImageDisplayRow {
+  std::size_t image_index{0};
+  int row{0};
+};
+
 struct AppState {
   std::filesystem::path path;
   loupe::LogFormat format{loupe::LogFormat::Generic};
@@ -89,6 +97,8 @@ struct AppState {
   int lines_width{-1};
   std::optional<std::size_t> overview_hovered;
   ftxui::Box overview_box;
+  std::map<std::size_t, ImageDisplayRow> image_rows;
+  loupe::InlineImages inline_images{std::getenv("TMUX") != nullptr};
 };
 
 struct BrowserEntry {
@@ -933,7 +943,9 @@ void restore_search_origin(AppState &state) {
 
 // Messages with an empty body and no annotations are already one line.
 bool message_foldable(const loupe::LogMessage &message) {
-  return !message.content.empty() || !message.annotations.empty();
+  return !message.content.empty()
+      || !message.annotations.empty()
+      || !message.images.empty();
 }
 
 void ensure_fold_state_size(AppState &state) {
@@ -1122,6 +1134,7 @@ void move_down(AppState &state, std::size_t amount) {
 }
 
 void reload(AppState &state) {
+  state.inline_images.clear(std::cout);
   AppState loaded = load_viewer_state(state.path, state.format);
   state.session = std::move(loaded.session);
   state.parsed = std::move(loaded.parsed);
@@ -1406,13 +1419,26 @@ bool ensure_display_lines(AppState &state) {
   state.lines_width = terminal_width;
   state.display_lines.clear();
   state.message_rows.clear();
+  state.image_rows.clear();
   const std::size_t wrap_width = static_cast<std::size_t>(
       std::max(16, terminal_width - loupe::kMessageOverviewWidth - 3));
   for (std::size_t index = 0; index < state.parsed.messages.size(); ++index) {
     const std::size_t first_row = state.display_lines.size();
     const bool folded = index < state.folded.size() && state.folded[index];
-    append_message_display_lines(state.parsed.messages[index], wrap_width,
-                                 folded, state.display_lines);
+    const auto &message = state.parsed.messages[index];
+    append_message_display_lines(message, wrap_width, folded,
+                                 state.display_lines);
+    if (!folded && !message.images.empty()) {
+      state.display_lines.pop_back(); // Put image cells before the separator.
+      for (std::size_t image = 0; image < message.images.size(); ++image) {
+        for (int row = 0; row < loupe::kKittyImageRows; ++row) {
+          state.image_rows.emplace(state.display_lines.size(),
+                                   ImageDisplayRow{image, row});
+          state.display_lines.emplace_back();
+        }
+        state.display_lines.emplace_back();
+      }
+    }
     state.message_rows.emplace_back(first_row, state.display_lines.size());
   }
   return true;
@@ -1819,6 +1845,13 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
       rows.push_back(std::move(block));
       message_elements.clear();
     };
+    std::vector<std::filesystem::path> image_base_directories;
+    if (!state.session.session.cwd.empty()) {
+      image_base_directories.emplace_back(state.session.session.cwd);
+    }
+    if (!state.path.parent_path().empty()) {
+      image_base_directories.push_back(state.path.parent_path());
+    }
     for (std::size_t row = lo; row < hi; ++row) {
       const std::size_t message_index =
           message_row_owner(state.message_rows, row);
@@ -1835,9 +1868,19 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
           pin_selected_header && selected_message && row == selection_bar_row
               ? state.message_rows[message_index].first
               : row;
-      Element line_element =
-          render_display_line(state.display_lines[source_row],
-                              visible_search_query, current_search_match);
+      Element line_element;
+      const auto image_row = state.image_rows.find(source_row);
+      if (image_row != state.image_rows.end()) {
+        const auto &image = image_row->second;
+        line_element = state.inline_images.line(
+            message.images[image.image_index], image.row,
+            std::max(1, state.lines_width - loupe::kMessageOverviewWidth - 3),
+            image_base_directories, std::cout);
+      } else {
+        line_element =
+            render_display_line(state.display_lines[source_row],
+                                visible_search_query, current_search_match);
+      }
       if (selected_message && row == selection_bar_row) {
         message_elements.push_back(hbox({
             text("▌") | color(loupe::message_role_color(message.role)),
@@ -2145,6 +2188,7 @@ void open_selected_file(ApplicationState &state) {
     return;
   }
 
+  state.viewer.inline_images.clear(std::cout);
   state.viewer = load_viewer_state(entry->path, state.format);
   state.showing_browser = false;
 }
@@ -2210,10 +2254,10 @@ bool handle_browser_event(ApplicationState &state, ftxui::Event event,
 }
 
 ftxui::Element render_app(ApplicationState &state) {
-  if (state.showing_browser) {
-    return render_browser(state.browser);
-  }
-  return render(state.viewer, state.browser_available);
+  auto document = state.showing_browser
+                    ? render_browser(state.browser)
+                    : render(state.viewer, state.browser_available);
+  return state.viewer.inline_images.frame(std::move(document), std::cout);
 }
 
 bool handle_app_event(ApplicationState &state, ftxui::Event event,
@@ -2272,7 +2316,11 @@ int main(int argc, char **argv) {
 
   auto screen = ftxui::App::Fullscreen();
   screen.TrackMouse(true);
-  const ftxui::Closure quit = screen.ExitLoopClosure();
+  const auto exit_loop = screen.ExitLoopClosure();
+  const ftxui::Closure quit = [&] {
+    state.viewer.inline_images.clear(std::cout);
+    exit_loop();
+  };
 
   auto component = ftxui::Renderer([&] { return render_app(state); });
   component |= ftxui::CatchEvent([&](ftxui::Event event) {
@@ -2282,6 +2330,7 @@ int main(int argc, char **argv) {
   {
     const loupe::ScopedSynchronizedOutput synchronized_output(std::cout);
     screen.Loop(component);
+    state.viewer.inline_images.clear(std::cout);
   }
   return EXIT_SUCCESS;
 }

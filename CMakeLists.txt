@@ -221,6 +221,20 @@ CPMAddPackage(
     "ARGUM_NO_TESTS ON"
 )
 
+# Memory-only image decoding for Kitty's PNG/RGBA wire formats. A pinned
+# header-only dependency keeps releases independent of system image libraries.
+CPMAddPackage(
+  NAME stb
+  GITHUB_REPOSITORY nothings/stb
+  GIT_TAG 2c980bb59875b0d32144a71867fbdebb2f77cd20
+  DOWNLOAD_ONLY YES
+)
+foreach(image_target IN ITEMS ${PROJECT_NAME} ${PROJECT_NAME}_LIB)
+  if(TARGET ${image_target} AND NOT ${PROJECT_NAME}_BUILD_HEADERS_ONLY)
+    target_include_directories(${image_target} SYSTEM PRIVATE "${stb_SOURCE_DIR}")
+  endif()
+endforeach()
+
 # Vendored, decompression-only static libzstd: session logs may be stored
 # as concatenated Zstandard frames (deepseek-harness session.jsonl.zstd),
 # and a pinned in-tree build keeps release binaries dependency-free on
