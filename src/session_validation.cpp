@@ -1,6 +1,6 @@
-#include "loupe/log_format.hpp"
-#include "loupe/session_ir.hpp"
-#include "loupe/session_parser.hpp"
+#include "lupe/log_format.hpp"
+#include "lupe/session_ir.hpp"
+#include "lupe/session_parser.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -14,7 +14,7 @@
 #include <variant>
 #include <vector>
 
-namespace loupe {
+namespace lupe {
 namespace {
 
 Diagnostic make_diagnostic(DiagnosticSeverity severity, DiagnosticCode code,
@@ -207,4 +207,4 @@ select_conversation_records(const SessionIR &session,
   return reversed;
 }
 
-} // namespace loupe
+} // namespace lupe

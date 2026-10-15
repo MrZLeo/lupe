@@ -1,4 +1,4 @@
-#include "loupe/kitty_graphics.hpp"
+#include "lupe/kitty_graphics.hpp"
 
 #include <algorithm>
 #include <array>
@@ -18,7 +18,7 @@
 
 #include <stb_image.h>
 
-namespace loupe {
+namespace lupe {
 namespace {
 
 constexpr std::size_t kMaxImageBytes = 32 * 1024 * 1024;
@@ -390,4 +390,4 @@ std::string kitty_placeholder(int row, int column) {
        + std::string{diacritics[static_cast<std::size_t>(column)]};
 }
 
-} // namespace loupe
+} // namespace lupe

@@ -1,4 +1,4 @@
-#include "loupe/markdown_text.hpp"
+#include "lupe/markdown_text.hpp"
 
 #include <cctype>
 #include <cstddef>
@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-namespace loupe {
+namespace lupe {
 namespace {
 struct InlineStyle {
   bool bold{false};
@@ -473,4 +473,4 @@ std::vector<MarkdownBlock> parse_markdown_text(std::string_view text) {
   return blocks;
 }
 
-} // namespace loupe
+} // namespace lupe

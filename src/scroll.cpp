@@ -1,9 +1,9 @@
-#include "loupe/scroll.hpp"
+#include "lupe/scroll.hpp"
 
 #include <algorithm>
 #include <limits>
 
-namespace loupe {
+namespace lupe {
 
 void follow_selection(ScrollState &scroll) { scroll.follow_focus = true; }
 
@@ -69,4 +69,4 @@ int max_top_row_for(int total_rows, int viewport_rows) {
   return std::max(0, total_rows - viewport_rows);
 }
 
-} // namespace loupe
+} // namespace lupe

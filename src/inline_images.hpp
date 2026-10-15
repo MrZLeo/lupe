@@ -1,5 +1,5 @@
-#ifndef LOUPE_INLINE_IMAGES_HPP_
-#define LOUPE_INLINE_IMAGES_HPP_
+#ifndef LUPE_INLINE_IMAGES_HPP_
+#define LUPE_INLINE_IMAGES_HPP_
 
 #include <cstdint>
 #include <filesystem>
@@ -9,9 +9,9 @@
 #include <span>
 #include <string>
 
-#include "loupe/log_message.hpp"
+#include "lupe/log_message.hpp"
 
-namespace loupe {
+namespace lupe {
 
 // Owns only the terminal resources for the current viewport. Image bytes are
 // decoded lazily when a row actually intersects the rendering stencil, then
@@ -48,6 +48,6 @@ private:
   std::map<const DisplayImage *, Entry> entries_;
 };
 
-} // namespace loupe
+} // namespace lupe
 
-#endif // LOUPE_INLINE_IMAGES_HPP_
+#endif // LUPE_INLINE_IMAGES_HPP_

@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <string_view>
 
-namespace loupe::detail {
+namespace lupe::detail {
 
 std::string_view trim_json_whitespace(std::string_view value) {
   auto is_space = [](char character) {
@@ -69,4 +69,4 @@ bool JsonlReader::next(JsonlLine &line) {
   return false;
 }
 
-} // namespace loupe::detail
+} // namespace lupe::detail

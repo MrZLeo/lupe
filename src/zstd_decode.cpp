@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 
-namespace loupe::detail {
+namespace lupe::detail {
 namespace {
 
 constexpr std::uint32_t kZstdMagic = 0xFD2FB528U;
@@ -129,4 +129,4 @@ decompress_zstd_frames(std::string_view compressed, std::uint64_t max_output) {
   }
 }
 
-} // namespace loupe::detail
+} // namespace lupe::detail

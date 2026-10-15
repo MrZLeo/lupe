@@ -1,9 +1,9 @@
-#include "loupe/message_projection.hpp"
+#include "lupe/message_projection.hpp"
 
-#include "loupe/log_message.hpp"
-#include "loupe/session_ir.hpp"
-#include "loupe/session_parser.hpp"
-#include "loupe/structured_text.hpp"
+#include "lupe/log_message.hpp"
+#include "lupe/session_ir.hpp"
+#include "lupe/session_parser.hpp"
+#include "lupe/structured_text.hpp"
 
 #include "json_helpers.hpp"
 
@@ -20,7 +20,7 @@
 #include <variant>
 #include <vector>
 
-namespace loupe {
+namespace lupe {
 namespace {
 
 std::string content_text(const ContentBlock &block, bool show_unknown) {
@@ -500,4 +500,4 @@ std::string format_diagnostic(const Diagnostic &diagnostic) {
   return rendered;
 }
 
-} // namespace loupe
+} // namespace lupe

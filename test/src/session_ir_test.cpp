@@ -1,7 +1,7 @@
-#include "loupe/log_format.hpp"
-#include "loupe/message_projection.hpp"
-#include "loupe/session_ir.hpp"
-#include "loupe/session_parser.hpp"
+#include "lupe/log_format.hpp"
+#include "lupe/message_projection.hpp"
+#include "lupe/session_ir.hpp"
+#include "lupe/session_parser.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -13,63 +13,63 @@
 #include <vector>
 
 TEST_CASE("parse explicit log format names", "[session_ir]") {
-  REQUIRE(loupe::parse_log_format("pi") == loupe::LogFormat::Pi);
-  REQUIRE(loupe::parse_log_format("codex") == loupe::LogFormat::Codex);
-  REQUIRE(loupe::parse_log_format("codex-exec") == loupe::LogFormat::CodexExec);
-  REQUIRE(loupe::parse_log_format("claudecode")
-          == loupe::LogFormat::ClaudeCode);
-  REQUIRE(loupe::parse_log_format("generic") == loupe::LogFormat::Generic);
-  REQUIRE(loupe::parse_log_format("auto") == loupe::LogFormat::Auto);
-  REQUIRE_FALSE(loupe::parse_log_format("yaml").has_value());
-  REQUIRE(loupe::log_format_name(loupe::LogFormat::CodexExec) == "codex-exec");
-  REQUIRE(loupe::log_format_name(loupe::LogFormat::Auto) == "auto");
+  REQUIRE(lupe::parse_log_format("pi") == lupe::LogFormat::Pi);
+  REQUIRE(lupe::parse_log_format("codex") == lupe::LogFormat::Codex);
+  REQUIRE(lupe::parse_log_format("codex-exec") == lupe::LogFormat::CodexExec);
+  REQUIRE(lupe::parse_log_format("claudecode")
+          == lupe::LogFormat::ClaudeCode);
+  REQUIRE(lupe::parse_log_format("generic") == lupe::LogFormat::Generic);
+  REQUIRE(lupe::parse_log_format("auto") == lupe::LogFormat::Auto);
+  REQUIRE_FALSE(lupe::parse_log_format("yaml").has_value());
+  REQUIRE(lupe::log_format_name(lupe::LogFormat::CodexExec) == "codex-exec");
+  REQUIRE(lupe::log_format_name(lupe::LogFormat::Auto) == "auto");
 }
 
 TEST_CASE("select active branch from parent-linked records", "[session_ir]") {
-  loupe::SessionIR session{
-      .format = loupe::LogFormat::Pi,
+  lupe::SessionIR session{
+      .format = lupe::LogFormat::Pi,
       .active_leaf_id = "right",
       .records =
           {
-              loupe::RecordIR{.sequence = 0,
+              lupe::RecordIR{.sequence = 0,
                               .native_id = "root",
                               .native_parent_id = std::nullopt},
-              loupe::RecordIR{.sequence = 1,
+              lupe::RecordIR{.sequence = 1,
                               .native_id = "left",
                               .native_parent_id = "root"},
-              loupe::RecordIR{.sequence = 2,
+              lupe::RecordIR{.sequence = 2,
                               .native_id = "right",
                               .native_parent_id = "root"},
           },
   };
 
-  const auto selected = loupe::select_conversation_records(session);
+  const auto selected = lupe::select_conversation_records(session);
 
   REQUIRE(selected == std::vector<std::size_t>{0, 2});
-  REQUIRE(loupe::select_conversation_records(session, "missing").empty());
+  REQUIRE(lupe::select_conversation_records(session, "missing").empty());
 
   session.active_leaf_id = "missing";
-  REQUIRE(loupe::select_conversation_records(session).empty());
-  const auto diagnostics = loupe::validate_session(session);
+  REQUIRE(lupe::select_conversation_records(session).empty());
+  const auto diagnostics = lupe::validate_session(session);
   REQUIRE(
-      std::ranges::any_of(diagnostics, [](const loupe::Diagnostic &diagnostic) {
-        return diagnostic.code == loupe::DiagnosticCode::MissingParent
+      std::ranges::any_of(diagnostics, [](const lupe::Diagnostic &diagnostic) {
+        return diagnostic.code == lupe::DiagnosticCode::MissingParent
             && diagnostic.message.contains("active conversation");
       }));
 }
 
 TEST_CASE("navigation parent can explicitly override a native edge with root",
           "[session_ir]") {
-  const loupe::SessionIR session{
-      .format = loupe::LogFormat::Pi,
+  const lupe::SessionIR session{
+      .format = lupe::LogFormat::Pi,
       .active_leaf_id = "child",
       .records =
           {
-              loupe::RecordIR{
+              lupe::RecordIR{
                   .sequence = 0,
                   .native_id = "root",
               },
-              loupe::RecordIR{
+              lupe::RecordIR{
                   .sequence = 1,
                   .native_id = "child",
                   .native_parent_id = "root",
@@ -78,25 +78,25 @@ TEST_CASE("navigation parent can explicitly override a native edge with root",
           },
   };
 
-  REQUIRE(loupe::select_conversation_records(session)
+  REQUIRE(lupe::select_conversation_records(session)
           == std::vector<std::size_t>{1});
 }
 
 TEST_CASE("validate duplicate ids, missing parents, and empty call ids",
           "[session_ir]") {
-  loupe::RecordIR first{
+  lupe::RecordIR first{
       .sequence = 0,
       .source_line = 1,
       .native_id = "same",
   };
-  loupe::append_event(first, loupe::ToolCallEvent{});
+  lupe::append_event(first, lupe::ToolCallEvent{});
 
-  const loupe::SessionIR session{
-      .format = loupe::LogFormat::Pi,
+  const lupe::SessionIR session{
+      .format = lupe::LogFormat::Pi,
       .records =
           {
               std::move(first),
-              loupe::RecordIR{
+              lupe::RecordIR{
                   .sequence = 1,
                   .source_line = 2,
                   .native_id = "same",
@@ -105,37 +105,37 @@ TEST_CASE("validate duplicate ids, missing parents, and empty call ids",
           },
   };
 
-  const auto diagnostics = loupe::validate_session(session);
+  const auto diagnostics = lupe::validate_session(session);
 
   REQUIRE(diagnostics.size() == 3);
 }
 
 TEST_CASE("project structured events into display messages", "[session_ir]") {
-  loupe::RecordIR record{
+  lupe::RecordIR record{
       .sequence = 0,
       .source_line = 7,
       .native_type = "message",
       .timestamp = "2026-07-23T00:00:00Z",
   };
-  loupe::append_event(record,
-                      loupe::MessageEvent{
-                          .role = loupe::Role::Assistant,
+  lupe::append_event(record,
+                      lupe::MessageEvent{
+                          .role = lupe::Role::Assistant,
                           .raw_role = "assistant",
-                          .content = {loupe::TextContent{.text = "Checking."}},
+                          .content = {lupe::TextContent{.text = "Checking."}},
                       });
-  loupe::append_event(record, loupe::ToolCallEvent{
+  lupe::append_event(record, lupe::ToolCallEvent{
                                   .call_id = "call-1",
                                   .name = "bash",
                                   .input = R"({"cmd":"pwd"})",
                                   .input_is_json = true,
                               });
 
-  const loupe::SessionIR session{
-      .format = loupe::LogFormat::Codex,
+  const lupe::SessionIR session{
+      .format = lupe::LogFormat::Codex,
       .records = {std::move(record)},
   };
 
-  const auto messages = loupe::make_display_messages(session);
+  const auto messages = lupe::make_display_messages(session);
 
   REQUIRE(messages.size() == 1);
   REQUIRE(messages.front().role == "assistant");
@@ -147,90 +147,90 @@ TEST_CASE("project structured events into display messages", "[session_ir]") {
 
 TEST_CASE("hide unknown content blocks unless explicitly requested",
           "[session_ir]") {
-  loupe::RecordIR record{
+  lupe::RecordIR record{
       .sequence = 0,
       .source_line = 3,
       .native_type = "response_item",
   };
-  loupe::append_event(
+  lupe::append_event(
       record,
-      loupe::MessageEvent{
-          .role = loupe::Role::Agent,
+      lupe::MessageEvent{
+          .role = lupe::Role::Agent,
           .raw_role = "agent",
           .content =
               {
-                  loupe::TextContent{.text = "readable"},
-                  loupe::UnknownContent{
+                  lupe::TextContent{.text = "readable"},
+                  lupe::UnknownContent{
                       .native_type = "encrypted_content",
                       .json = R"({"type":"encrypted_content","data":"cipher"})",
                   },
               },
       });
 
-  const loupe::SessionIR session{
-      .format = loupe::LogFormat::Codex,
+  const lupe::SessionIR session{
+      .format = lupe::LogFormat::Codex,
       .records = {std::move(record)},
   };
 
-  const auto default_messages = loupe::make_display_messages(session);
+  const auto default_messages = lupe::make_display_messages(session);
   REQUIRE(default_messages.size() == 1);
   REQUIRE(default_messages.front().content == "readable");
 
-  const auto messages_with_unknown = loupe::make_display_messages(
-      session, loupe::DisplayOptions{.show_unknown = true});
+  const auto messages_with_unknown = lupe::make_display_messages(
+      session, lupe::DisplayOptions{.show_unknown = true});
   REQUIRE(messages_with_unknown.size() == 1);
   REQUIRE(messages_with_unknown.front().content.contains("cipher"));
 }
 
 TEST_CASE("content parsing includes shared semantic validation",
           "[session_ir]") {
-  const auto parsed = loupe::parse_session_content(
+  const auto parsed = lupe::parse_session_content(
       R"({"type":"session","version":3,"id":"session","timestamp":"2026-07-23T00:00:00Z","cwd":"/work"}
 {"type":"message","id":"a1","parentId":null,"timestamp":"2026-07-23T00:00:01Z","message":{"role":"assistant","content":[{"type":"toolCall","id":"","name":"read","arguments":{}}]}})",
-      loupe::LogFormat::Pi);
+      lupe::LogFormat::Pi);
 
   REQUIRE(std::ranges::any_of(
-      parsed.diagnostics, [](const loupe::Diagnostic &diagnostic) {
-        return diagnostic.code == loupe::DiagnosticCode::EmptyCallId;
+      parsed.diagnostics, [](const lupe::Diagnostic &diagnostic) {
+        return diagnostic.code == lupe::DiagnosticCode::EmptyCallId;
       }));
 }
 
 TEST_CASE("usage after a hidden event stays attached to the visible turn",
           "[session_ir]") {
-  loupe::RecordIR message_record{
+  lupe::RecordIR message_record{
       .sequence = 0,
       .source_line = 1,
       .native_type = "response_item",
   };
-  loupe::append_event(
+  lupe::append_event(
       message_record,
-      loupe::MessageEvent{
-          .role = loupe::Role::Assistant,
+      lupe::MessageEvent{
+          .role = lupe::Role::Assistant,
           .raw_role = "assistant",
-          .content = {loupe::TextContent{.text = "visible answer"}},
+          .content = {lupe::TextContent{.text = "visible answer"}},
       });
 
-  loupe::RecordIR usage_record{
+  lupe::RecordIR usage_record{
       .sequence = 1,
       .source_line = 2,
       .native_type = "event_msg",
   };
-  loupe::append_event(usage_record, loupe::ReasoningEvent{
+  lupe::append_event(usage_record, lupe::ReasoningEvent{
                                         .summary = "hidden plan",
                                         .content = "hidden details",
                                     });
-  loupe::append_event(usage_record, loupe::UsageEvent{
-                                        .scope = loupe::UsageScope::Turn,
+  lupe::append_event(usage_record, lupe::UsageEvent{
+                                        .scope = lupe::UsageScope::Turn,
                                         .input_tokens = 12,
                                         .output_tokens = 4,
                                     });
 
-  const loupe::SessionIR session{
-      .format = loupe::LogFormat::Codex,
+  const lupe::SessionIR session{
+      .format = lupe::LogFormat::Codex,
       .records = {std::move(message_record), std::move(usage_record)},
   };
 
-  const auto messages = loupe::make_display_messages(session);
+  const auto messages = lupe::make_display_messages(session);
 
   REQUIRE(messages.size() == 1);
   REQUIRE(messages.front().content == "visible answer");

@@ -1,4 +1,4 @@
-#include "loupe/synchronized_output.hpp"
+#include "lupe/synchronized_output.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -10,7 +10,7 @@
 #include <string>
 #include <string_view>
 
-namespace loupe {
+namespace lupe {
 namespace {
 
 constexpr std::string_view kBeginSynchronizedUpdate = "\x1b[?2026h";
@@ -130,4 +130,4 @@ ScopedSynchronizedOutput::~ScopedSynchronizedOutput() noexcept {
   }
 }
 
-} // namespace loupe
+} // namespace lupe

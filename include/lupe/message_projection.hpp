@@ -1,14 +1,14 @@
-#ifndef LOUPE_MESSAGE_PROJECTION_HPP_
-#define LOUPE_MESSAGE_PROJECTION_HPP_
+#ifndef LUPE_MESSAGE_PROJECTION_HPP_
+#define LUPE_MESSAGE_PROJECTION_HPP_
 
 #include <optional>
 #include <string>
 #include <vector>
 
-#include "loupe/log_message.hpp"
-#include "loupe/session_ir.hpp"
+#include "lupe/log_message.hpp"
+#include "lupe/session_ir.hpp"
 
-namespace loupe {
+namespace lupe {
 
 struct DisplayOptions {
   std::optional<std::string> leaf_id;
@@ -26,6 +26,6 @@ std::string format_diagnostic(const Diagnostic &diagnostic);
 
 std::string severity_name(DiagnosticSeverity severity);
 
-} // namespace loupe
+} // namespace lupe
 
-#endif // LOUPE_MESSAGE_PROJECTION_HPP_
+#endif // LUPE_MESSAGE_PROJECTION_HPP_

@@ -2,7 +2,7 @@ function(project_configure_cxx_standard required_standard)
   if(NOT "cxx_std_${required_standard}" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
     message(
       FATAL_ERROR
-      "Loupe requires C++${required_standard}, but compiler "
+      "Lupe requires C++${required_standard}, but compiler "
       "${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} does not advertise support."
     )
   endif()

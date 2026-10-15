@@ -1,0 +1,24 @@
+class Lupe < Formula
+  desc "Terminal viewer for coding-agent session logs"
+  homepage "https://github.com/mrzleo/lupe"
+  url "https://github.com/mrzleo/lupe/releases/download/@TAG@/@BINARY@-@TAG@-macos-universal.tar.gz"
+  sha256 "@MACOS_SHA256@"
+  license "BSD-3-Clause"
+
+  depends_on macos: :ventura
+
+  resource "license" do
+    url "https://raw.githubusercontent.com/mrzleo/lupe/@TAG@/LICENSE"
+    sha256 "@LICENSE_SHA256@"
+  end
+
+  def install
+    bin.install "@BINARY@" => "lupe"
+    pkgshare.install "THIRD_PARTY_LICENSES.md"
+    resource("license").stage { pkgshare.install "LICENSE" }
+  end
+
+  test do
+    assert_match "@BINARY@ #{version}", shell_output("#{bin}/lupe --version")
+  end
+end

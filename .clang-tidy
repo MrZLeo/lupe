@@ -28,6 +28,6 @@ CheckOptions:
   - key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
     value: 'true'
 WarningsAsErrors: '*'
-HeaderFilterRegex: '.*/loupe/(include|test)/.*'
+HeaderFilterRegex: '.*/lupe/(include|test)/.*'
 FormatStyle: none
 

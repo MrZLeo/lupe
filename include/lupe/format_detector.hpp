@@ -1,12 +1,12 @@
-#ifndef LOUPE_FORMAT_DETECTOR_HPP_
-#define LOUPE_FORMAT_DETECTOR_HPP_
+#ifndef LUPE_FORMAT_DETECTOR_HPP_
+#define LUPE_FORMAT_DETECTOR_HPP_
 
 #include <optional>
 #include <string_view>
 
-#include "loupe/log_format.hpp"
+#include "lupe/log_format.hpp"
 
-namespace loupe {
+namespace lupe {
 
 // Sniffs the first lines of a JSONL document and votes on which native
 // session format it follows. The four native formats use disjoint
@@ -18,6 +18,6 @@ namespace loupe {
 // selected, so unknown content yields std::nullopt instead of a guess.
 std::optional<LogFormat> detect_log_format(std::string_view content);
 
-} // namespace loupe
+} // namespace lupe
 
-#endif // LOUPE_FORMAT_DETECTOR_HPP_
+#endif // LUPE_FORMAT_DETECTOR_HPP_

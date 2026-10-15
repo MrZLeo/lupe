@@ -1,10 +1,10 @@
-#ifndef LOUPE_JSONL_READER_HPP_
-#define LOUPE_JSONL_READER_HPP_
+#ifndef LUPE_JSONL_READER_HPP_
+#define LUPE_JSONL_READER_HPP_
 
 #include <cstddef>
 #include <string_view>
 
-namespace loupe::detail {
+namespace lupe::detail {
 
 struct JsonlLine {
   std::size_t sequence{0};
@@ -29,6 +29,6 @@ private:
 
 std::string_view trim_json_whitespace(std::string_view value);
 
-} // namespace loupe::detail
+} // namespace lupe::detail
 
-#endif // LOUPE_JSONL_READER_HPP_
+#endif // LUPE_JSONL_READER_HPP_

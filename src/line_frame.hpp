@@ -3,13 +3,13 @@
 
 #include <ftxui/dom/elements.hpp>
 
-#include "loupe/scroll.hpp"
+#include "lupe/scroll.hpp"
 
-namespace loupe {
+namespace lupe {
 
 ftxui::Element line_frame(ftxui::Element content, ScrollState &scroll);
 ftxui::Element scroll_progress_indicator(const ScrollState &scroll);
 
-} // namespace loupe
+} // namespace lupe
 
 #endif // PROJECT_LINE_FRAME_HPP_

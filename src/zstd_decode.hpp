@@ -1,12 +1,12 @@
-#ifndef LOUPE_ZSTD_DECODE_HPP_
-#define LOUPE_ZSTD_DECODE_HPP_
+#ifndef LUPE_ZSTD_DECODE_HPP_
+#define LUPE_ZSTD_DECODE_HPP_
 
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
 
-namespace loupe::detail {
+namespace lupe::detail {
 
 // True when the buffer opens with a Zstandard frame magic (an ordinary
 // frame, or a skippable frame from 0x184D2A50..0x184D2A5F).
@@ -31,6 +31,6 @@ struct ZstdDecodeResult {
 ZstdDecodeResult
 decompress_zstd_frames(std::string_view compressed, std::uint64_t max_output);
 
-} // namespace loupe::detail
+} // namespace lupe::detail
 
-#endif // LOUPE_ZSTD_DECODE_HPP_
+#endif // LUPE_ZSTD_DECODE_HPP_

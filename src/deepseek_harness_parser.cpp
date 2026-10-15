@@ -1,5 +1,5 @@
-#include "loupe/log_format.hpp"
-#include "loupe/session_ir.hpp"
+#include "lupe/log_format.hpp"
+#include "lupe/session_ir.hpp"
 #include "session_parser_internal.hpp"
 
 #include "json_helpers.hpp"
@@ -30,7 +30,7 @@
 // The default on-disk file is Zstandard-compressed (`session.jsonl.zstd`);
 // this parser reads the decompressed JSONL content.
 
-namespace loupe::detail {
+namespace lupe::detail {
 namespace {
 
 using simdjson::dom::element;
@@ -1374,4 +1374,4 @@ SessionParseResult parse_deepseek_harness_session(std::string_view content) {
   return result;
 }
 
-} // namespace loupe::detail
+} // namespace lupe::detail

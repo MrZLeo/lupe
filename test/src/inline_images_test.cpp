@@ -1,7 +1,7 @@
 #include "image_test_data.hpp"
 #include "inline_images.hpp"
 #include "line_frame.hpp"
-#include "loupe/kitty_graphics.hpp"
+#include "lupe/kitty_graphics.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <ftxui/dom/elements.hpp>
@@ -15,10 +15,10 @@
 
 namespace {
 ftxui::Element
-image_block(loupe::InlineImages &images, const loupe::DisplayImage &image,
+image_block(lupe::InlineImages &images, const lupe::DisplayImage &image,
             int columns, std::ostream &output) {
   ftxui::Elements rows;
-  for (int row = 0; row < loupe::kKittyImageRows; ++row) {
+  for (int row = 0; row < lupe::kKittyImageRows; ++row) {
     rows.push_back(images.line(image, row, columns, {}, output));
   }
   return ftxui::vbox(std::move(rows));
@@ -32,7 +32,7 @@ std::uint32_t image_id(const std::string &commands) {
 
 TEST_CASE("inline images render as normal single-cell TUI rows",
           "[inline_images]") {
-  loupe::InlineImages images;
+  lupe::InlineImages images;
   const auto image = image_test::image();
   std::ostringstream output;
   auto screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(6),
@@ -49,7 +49,7 @@ TEST_CASE("inline images render as normal single-cell TUI rows",
   for (int row = 0; row < 12; ++row) {
     for (int column = 0; column < 6; ++column) {
       const auto &cell = screen.CellAt(column, row);
-      CHECK(cell.character == loupe::kitty_placeholder(row, column));
+      CHECK(cell.character == lupe::kitty_placeholder(row, column));
       CHECK(ftxui::string_width(cell.character) == 1);
       CHECK(cell.foreground_color == expected_color);
     }
@@ -68,10 +68,10 @@ TEST_CASE("inline images render as normal single-cell TUI rows",
 TEST_CASE(
     "inline images clip while scrolling and do not cover headers or footers",
     "[inline_images]") {
-  loupe::InlineImages images;
+  lupe::InlineImages images;
   const auto image = image_test::image();
   std::ostringstream output;
-  loupe::ScrollState scroll;
+  lupe::ScrollState scroll;
   scroll.follow_focus = false;
   scroll.top_row = 4;
   auto screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(8),
@@ -79,7 +79,7 @@ TEST_CASE(
   auto document = images.frame(
       ftxui::vbox({
           ftxui::text("header"),
-          loupe::line_frame(image_block(images, image, 8, output), scroll)
+          lupe::line_frame(image_block(images, image, 8, output), scroll)
               | ftxui::flex,
           ftxui::text("footer"),
       }),
@@ -87,20 +87,20 @@ TEST_CASE(
   ftxui::Render(screen, document);
   CHECK(screen.CellAt(0, 0).character == "h");
   CHECK(screen.CellAt(0, 4).character == "f");
-  CHECK(screen.CellAt(0, 1).character == loupe::kitty_placeholder(4, 0));
-  CHECK(screen.CellAt(7, 3).character == loupe::kitty_placeholder(6, 7));
+  CHECK(screen.CellAt(0, 1).character == lupe::kitty_placeholder(4, 0));
+  CHECK(screen.CellAt(7, 3).character == lupe::kitty_placeholder(6, 7));
   CHECK(output.str().contains("c=8,r=12"));
 
   output.str("");
-  loupe::scroll_by_rows(scroll, 1);
+  lupe::scroll_by_rows(scroll, 1);
   ftxui::Render(screen, document);
-  CHECK(screen.CellAt(0, 1).character == loupe::kitty_placeholder(5, 0));
+  CHECK(screen.CellAt(0, 1).character == lupe::kitty_placeholder(5, 0));
   CHECK_FALSE(output.str().contains("a=t"));
 }
 
 TEST_CASE("resize virtual placements without retransmitting image data",
           "[inline_images]") {
-  loupe::InlineImages images;
+  lupe::InlineImages images;
   const auto image = image_test::image();
   std::ostringstream output;
   auto screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(10),
@@ -115,12 +115,12 @@ TEST_CASE("resize virtual placements without retransmitting image data",
                 images.frame(image_block(images, image, 4, output), output));
   CHECK(output.str().contains("i=" + std::to_string(id) + ",p=1,c=4,r=12"));
   CHECK_FALSE(output.str().contains("a=t"));
-  CHECK(screen.CellAt(3, 11).character == loupe::kitty_placeholder(11, 3));
+  CHECK(screen.CellAt(3, 11).character == lupe::kitty_placeholder(11, 3));
 }
 
 TEST_CASE("release invisible images on folds, view switches and reloads",
           "[inline_images]") {
-  loupe::InlineImages images;
+  lupe::InlineImages images;
   const auto first = image_test::image();
   const auto second = image_test::image(image_test::bmp);
   std::ostringstream output;
@@ -152,15 +152,15 @@ TEST_CASE("release invisible images on folds, view switches and reloads",
 
 TEST_CASE("offscreen images are not decoded or transmitted",
           "[inline_images]") {
-  loupe::InlineImages images;
+  lupe::InlineImages images;
   const auto image = image_test::image();
   std::ostringstream output;
-  loupe::ScrollState scroll;
+  lupe::ScrollState scroll;
   scroll.follow_focus = false;
   auto screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(8),
                                       ftxui::Dimension::Fixed(2));
   auto document =
-      images.frame(loupe::line_frame(ftxui::vbox({
+      images.frame(lupe::line_frame(ftxui::vbox({
                                          ftxui::text("first"),
                                          ftxui::text("second"),
                                          image_block(images, image, 8, output),
@@ -169,7 +169,7 @@ TEST_CASE("offscreen images are not decoded or transmitted",
                    output);
   ftxui::Render(screen, document);
   CHECK(output.str().empty());
-  loupe::scroll_by_rows(scroll, 2);
+  lupe::scroll_by_rows(scroll, 2);
   ftxui::Render(screen, document);
   CHECK(output.str().contains("a=t,t=d"));
 }
@@ -178,8 +178,8 @@ TEST_CASE("invalid or remote images remain text diagnostics without commands",
           "[inline_images]") {
   for (const auto image :
        {image_test::image("not base64!"),
-        loupe::DisplayImage{.url = "https://example.com/image.png"}}) {
-    loupe::InlineImages images;
+        lupe::DisplayImage{.url = "https://example.com/image.png"}}) {
+    lupe::InlineImages images;
     std::ostringstream output;
     auto screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(80),
                                         ftxui::Dimension::Fixed(12));

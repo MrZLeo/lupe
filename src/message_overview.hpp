@@ -10,9 +10,9 @@
 #include <ftxui/screen/box.hpp>
 #include <ftxui/screen/color.hpp>
 
-#include "loupe/log_message.hpp"
+#include "lupe/log_message.hpp"
 
-namespace loupe {
+namespace lupe {
 
 inline constexpr int kMessageOverviewWidth = 7;
 
@@ -26,6 +26,6 @@ ftxui::Element
 message_overview(const std::vector<LogMessage> &messages, std::size_t selected,
                  std::optional<std::size_t> hovered, ftxui::Box &reflected_box);
 
-} // namespace loupe
+} // namespace lupe
 
 #endif // PROJECT_MESSAGE_OVERVIEW_HPP_

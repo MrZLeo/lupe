@@ -1,12 +1,12 @@
-#ifndef LOUPE_TEST_IMAGE_DATA_HPP_
-#define LOUPE_TEST_IMAGE_DATA_HPP_
+#ifndef LUPE_TEST_IMAGE_DATA_HPP_
+#define LUPE_TEST_IMAGE_DATA_HPP_
 
 #include <array>
 #include <memory>
 #include <string>
 #include <string_view>
 
-#include "loupe/log_message.hpp"
+#include "lupe/log_message.hpp"
 
 namespace image_test {
 
@@ -39,8 +39,8 @@ inline constexpr std::array<unsigned char, 58> bmp_bytes{
     0,    0,    0,  0, 0, 0, 0, 0, 0,  0, 0,  0, 0, 0, 0,  0, 255, 0,
 };
 
-inline loupe::DisplayImage image(std::string_view data = png) {
-  return loupe::DisplayImage{
+inline lupe::DisplayImage image(std::string_view data = png) {
+  return lupe::DisplayImage{
       .inline_data = true,
       .base64_data = std::make_shared<const std::string>(data),
   };
@@ -48,4 +48,4 @@ inline loupe::DisplayImage image(std::string_view data = png) {
 
 } // namespace image_test
 
-#endif // LOUPE_TEST_IMAGE_DATA_HPP_
+#endif // LUPE_TEST_IMAGE_DATA_HPP_

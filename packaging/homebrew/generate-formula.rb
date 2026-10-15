@@ -7,9 +7,9 @@ require "open3"
 require "pathname"
 require "tempfile"
 
-module LoupeHomebrew
+module LupeHomebrew
   ROOT = Pathname(__dir__).join("../..").expand_path
-  TEMPLATE = Pathname(__dir__).join("loupe.rb.in")
+  TEMPLATE = Pathname(__dir__).join("lupe.rb.in")
   TAG_PATTERN = /\Av(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\z/
   CHECKSUM_PATTERN = /\A(?<sha256>[0-9a-fA-F]{64})[ \t]+\*?(?<filename>\S+)\z/
 
@@ -22,9 +22,14 @@ module LoupeHomebrew
 
     license_sha256 ||= tagged_license_sha256(tag)
     checksums = parse_checksums(checksums_path)
+    # Historical releases keep their original archive and executable names.
+    archive = "lupe-#{tag}-macos-universal.tar.gz"
+    legacy_archive = "loupe-#{tag}-macos-universal.tar.gz"
+    binary = !checksums.key?(archive) && checksums.key?(legacy_archive) ? "loupe" : "lupe"
     replacements = {
       "@TAG@" => tag,
-      "@MACOS_SHA256@" => fetch_checksum(checksums, "loupe-#{tag}-macos-universal.tar.gz"),
+      "@BINARY@" => binary,
+      "@MACOS_SHA256@" => fetch_checksum(checksums, "#{binary}-#{tag}-macos-universal.tar.gz"),
       "@LICENSE_SHA256@" => license_sha256,
     }
 
@@ -43,7 +48,7 @@ module LoupeHomebrew
     output = Pathname(output_path)
     FileUtils.mkdir_p(output.dirname)
 
-    Tempfile.create([".loupe", ".rb"], output.dirname) do |file|
+    Tempfile.create([".lupe", ".rb"], output.dirname) do |file|
       file.write(render(tag, checksums_path))
       file.flush
       FileUtils.chmod(0o644, file.path)
@@ -93,5 +98,5 @@ if $PROGRAM_NAME == __FILE__
     exit 2
   end
 
-  LoupeHomebrew.write(*ARGV)
+  LupeHomebrew.write(*ARGV)
 end

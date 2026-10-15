@@ -6,11 +6,11 @@
 #include <ftxui/screen/screen.hpp>
 #include <string>
 
-#include "loupe/scroll.hpp"
+#include "lupe/scroll.hpp"
 
 TEST_CASE("manual scrolling survives wrapped layout passes", "[scroll]") {
-  loupe::ScrollState scroll;
-  auto frame = loupe::line_frame(
+  lupe::ScrollState scroll;
+  auto frame = lupe::line_frame(
       ftxui::paragraph(
           "zero one two three four five six seven eight nine ten eleven twelve "
           "thirteen fourteen fifteen sixteen seventeen eighteen omega"),
@@ -22,7 +22,7 @@ TEST_CASE("manual scrolling survives wrapped layout passes", "[scroll]") {
   REQUIRE(scroll.max_top_row > 0);
   REQUIRE(!screen.ToString().contains("omega"));
 
-  loupe::scroll_by_rows(scroll, scroll.max_top_row);
+  lupe::scroll_by_rows(scroll, scroll.max_top_row);
   const int bottom_row = scroll.top_row;
 
   ftxui::Render(screen, frame);
@@ -34,9 +34,9 @@ TEST_CASE("manual scrolling survives wrapped layout passes", "[scroll]") {
 
 TEST_CASE("progress indicator uses the layout from the current frame",
           "[scroll]") {
-  loupe::ScrollState scroll;
+  lupe::ScrollState scroll;
   auto document = ftxui::vbox({
-      loupe::line_frame(ftxui::vbox({
+      lupe::line_frame(ftxui::vbox({
                             ftxui::text("zero"),
                             ftxui::text("one"),
                             ftxui::text("two"),
@@ -45,7 +45,7 @@ TEST_CASE("progress indicator uses the layout from the current frame",
                         }),
                         scroll)
           | ftxui::flex,
-      loupe::scroll_progress_indicator(scroll),
+      lupe::scroll_progress_indicator(scroll),
   });
   auto screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(8),
                                       ftxui::Dimension::Fixed(3));
@@ -53,7 +53,7 @@ TEST_CASE("progress indicator uses the layout from the current frame",
   ftxui::Render(screen, document);
   REQUIRE(screen.ToString().contains("0%"));
 
-  loupe::scroll_by_rows(scroll, scroll.max_top_row);
+  lupe::scroll_by_rows(scroll, scroll.max_top_row);
   ftxui::Render(screen, document);
   REQUIRE(screen.ToString().contains("100%"));
 }

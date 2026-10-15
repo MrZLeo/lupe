@@ -34,13 +34,13 @@ help:
 
 test: ## run tests quickly with ctest
 	rm -rf build/
-	cmake -Bbuild $(CMAKE_FLAGS) -DLoupe_ENABLE_UNIT_TESTING=ON -DCMAKE_BUILD_TYPE="Release"
+	cmake -Bbuild $(CMAKE_FLAGS) -DLupe_ENABLE_UNIT_TESTING=ON -DCMAKE_BUILD_TYPE="Release"
 	cmake --build build --config Release
 	cd build/ && ctest -C Release -VV
 
 coverage: ## check code coverage quickly GCC
 	rm -rf build/
-	cmake -Bbuild $(CMAKE_FLAGS) -DLoupe_ENABLE_UNIT_TESTING=ON -DLoupe_ENABLE_CODE_COVERAGE=ON
+	cmake -Bbuild $(CMAKE_FLAGS) -DLupe_ENABLE_UNIT_TESTING=ON -DLupe_ENABLE_CODE_COVERAGE=ON
 	cmake --build build --config Release
 	cd build/ && ctest -C Release -VV
 	cd .. && (bash -c "find . -type f -name '*.gcno' -exec gcov -pb {} +" || true)
@@ -48,18 +48,18 @@ coverage: ## check code coverage quickly GCC
 docs: ## generate Doxygen HTML documentation, including API docs
 	rm -rf docs/
 	rm -rf build/
-	cmake -Bbuild $(CMAKE_FLAGS) -DLoupe_ENABLE_UNIT_TESTING=OFF -DLoupe_ENABLE_DOXYGEN=ON
+	cmake -Bbuild $(CMAKE_FLAGS) -DLupe_ENABLE_UNIT_TESTING=OFF -DLupe_ENABLE_DOXYGEN=ON
 	cmake --build build --config Release
 	cmake --build build --target doxygen-docs
 	$(BROWSER) docs/html/index.html
 
 install: ## install the package to the `INSTALL_LOCATION`
 	rm -rf build/
-	cmake -Bbuild $(CMAKE_FLAGS) -DLoupe_ENABLE_UNIT_TESTING=OFF
+	cmake -Bbuild $(CMAKE_FLAGS) -DLupe_ENABLE_UNIT_TESTING=OFF
 	cmake --build build --config Release
 	cmake --build build --target install --config Release
 
 format: ## format the project sources
 	rm -rf build/
-	cmake -Bbuild $(CMAKE_FLAGS) -DLoupe_ENABLE_UNIT_TESTING=OFF
+	cmake -Bbuild $(CMAKE_FLAGS) -DLupe_ENABLE_UNIT_TESTING=OFF
 	cmake --build build --target clang-format

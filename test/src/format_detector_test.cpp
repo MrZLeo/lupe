@@ -1,7 +1,7 @@
-#include "loupe/format_detector.hpp"
+#include "lupe/format_detector.hpp"
 
-#include "loupe/log_format.hpp"
-#include "loupe/session_parser.hpp"
+#include "lupe/log_format.hpp"
+#include "lupe/session_parser.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -42,14 +42,14 @@ const std::string kDeepseekHarnessSession =
     "\n";
 
 TEST_CASE("detector recognizes each native format", "[format]") {
-  REQUIRE(loupe::detect_log_format(kPiSession) == loupe::LogFormat::Pi);
-  REQUIRE(loupe::detect_log_format(kCodexRollout) == loupe::LogFormat::Codex);
-  REQUIRE(loupe::detect_log_format(kCodexExecStream)
-          == loupe::LogFormat::CodexExec);
-  REQUIRE(loupe::detect_log_format(kClaudeCodeTranscript)
-          == loupe::LogFormat::ClaudeCode);
-  REQUIRE(loupe::detect_log_format(kDeepseekHarnessSession)
-          == loupe::LogFormat::DeepseekHarness);
+  REQUIRE(lupe::detect_log_format(kPiSession) == lupe::LogFormat::Pi);
+  REQUIRE(lupe::detect_log_format(kCodexRollout) == lupe::LogFormat::Codex);
+  REQUIRE(lupe::detect_log_format(kCodexExecStream)
+          == lupe::LogFormat::CodexExec);
+  REQUIRE(lupe::detect_log_format(kClaudeCodeTranscript)
+          == lupe::LogFormat::ClaudeCode);
+  REQUIRE(lupe::detect_log_format(kDeepseekHarnessSession)
+          == lupe::LogFormat::DeepseekHarness);
 }
 
 TEST_CASE("detector anchors on the first record", "[format]") {
@@ -58,15 +58,15 @@ TEST_CASE("detector anchors on the first record", "[format]") {
   const std::string no_meta =
       R"({"timestamp":"2026-07-27T00:00:01Z","type":"response_item","payload":{"type":"message"}})"
       "\n";
-  REQUIRE(loupe::detect_log_format(no_meta) == loupe::LogFormat::Codex);
+  REQUIRE(lupe::detect_log_format(no_meta) == lupe::LogFormat::Codex);
 
   // Claude Code transcripts may open with a metadata record.
   const std::string metadata_first =
       R"({"type":"file-history-snapshot","messageId":"u-1","snapshot":{}})"
       "\n"
       + kClaudeCodeTranscript;
-  REQUIRE(loupe::detect_log_format(metadata_first)
-          == loupe::LogFormat::ClaudeCode);
+  REQUIRE(lupe::detect_log_format(metadata_first)
+          == lupe::LogFormat::ClaudeCode);
 
   // A deepseek-harness log without its header still votes from the
   // slash-namespaced event vocabulary and the packed chunk rows.
@@ -75,8 +75,8 @@ TEST_CASE("detector anchors on the first record", "[format]") {
       "\n"
       R"({"type":"assistant/message","seq":3,"time":1786700002000,"data":{"turn":1,"step":1,"message":{}}})"
       "\n";
-  REQUIRE(loupe::detect_log_format(no_header)
-          == loupe::LogFormat::DeepseekHarness);
+  REQUIRE(lupe::detect_log_format(no_header)
+          == lupe::LogFormat::DeepseekHarness);
 }
 
 TEST_CASE("detector skips malformed lines", "[format]") {
@@ -84,7 +84,7 @@ TEST_CASE("detector skips malformed lines", "[format]") {
                               "\n"
                               "   \n"
                             + kCodexExecStream;
-  REQUIRE(loupe::detect_log_format(damaged) == loupe::LogFormat::CodexExec);
+  REQUIRE(lupe::detect_log_format(damaged) == lupe::LogFormat::CodexExec);
 }
 
 TEST_CASE("detector uses structure when the type is foreign", "[format]") {
@@ -94,45 +94,45 @@ TEST_CASE("detector uses structure when the type is foreign", "[format]") {
       "\n"
       R"({"type":"mystery","sessionId":"c-1","uuid":"u-2","parentUuid":"u-1"})"
       "\n";
-  REQUIRE(loupe::detect_log_format(typed_elsewhere)
-          == loupe::LogFormat::ClaudeCode);
+  REQUIRE(lupe::detect_log_format(typed_elsewhere)
+          == lupe::LogFormat::ClaudeCode);
 }
 
 TEST_CASE("detector refuses ambiguous or unknown content", "[format]") {
-  REQUIRE_FALSE(loupe::detect_log_format("").has_value());
+  REQUIRE_FALSE(lupe::detect_log_format("").has_value());
   REQUIRE_FALSE(
-      loupe::detect_log_format("{\"foo\":1}\n{\"bar\":2}\n").has_value());
+      lupe::detect_log_format("{\"foo\":1}\n{\"bar\":2}\n").has_value());
   // Legacy generic JSONL stays explicit: the lossy path is never guessed.
-  REQUIRE_FALSE(loupe::detect_log_format(R"({"role":"user","content":"hi"})"
+  REQUIRE_FALSE(lupe::detect_log_format(R"({"role":"user","content":"hi"})"
                                          "\n")
                     .has_value());
   // A lone weak vocabulary hit is not decisive.
   REQUIRE_FALSE(
-      loupe::detect_log_format("{\"type\":\"message\"}\n").has_value());
+      lupe::detect_log_format("{\"type\":\"message\"}\n").has_value());
   // A foreign later record does not override the first-record anchor.
   const std::string mixed = kCodexExecStream + kPiSession;
-  REQUIRE(loupe::detect_log_format(mixed) == loupe::LogFormat::CodexExec);
+  REQUIRE(lupe::detect_log_format(mixed) == lupe::LogFormat::CodexExec);
 
   // A deepseek-harness header is not a Pi header despite sharing the
   // `session` type: createdAt/delegationDepth discriminate it.
-  REQUIRE(loupe::detect_log_format(kDeepseekHarnessSession + kPiSession)
-          == loupe::LogFormat::DeepseekHarness);
-  REQUIRE(loupe::detect_log_format(kPiSession + kDeepseekHarnessSession)
-          == loupe::LogFormat::Pi);
+  REQUIRE(lupe::detect_log_format(kDeepseekHarnessSession + kPiSession)
+          == lupe::LogFormat::DeepseekHarness);
+  REQUIRE(lupe::detect_log_format(kPiSession + kDeepseekHarnessSession)
+          == lupe::LogFormat::Pi);
 }
 
 TEST_CASE("auto format parses through the session entry point", "[format]") {
   auto parsed =
-      loupe::parse_session_content(kCodexExecStream, loupe::LogFormat::Auto);
-  REQUIRE(parsed.session.format == loupe::LogFormat::CodexExec);
+      lupe::parse_session_content(kCodexExecStream, lupe::LogFormat::Auto);
+  REQUIRE(parsed.session.format == lupe::LogFormat::CodexExec);
   REQUIRE_FALSE(parsed.has_fatal_error());
 }
 
 TEST_CASE("undetectable content is fatal with guidance", "[format]") {
   auto parsed =
-      loupe::parse_session_content("{\"foo\":1}\n", loupe::LogFormat::Auto);
+      lupe::parse_session_content("{\"foo\":1}\n", lupe::LogFormat::Auto);
   REQUIRE(parsed.has_fatal_error());
-  REQUIRE(parsed.session.format == loupe::LogFormat::Auto);
+  REQUIRE(parsed.session.format == lupe::LogFormat::Auto);
   bool mentions_format_flag = false;
   for (const auto &diagnostic : parsed.diagnostics) {
     if (diagnostic.message.contains("--format")) {

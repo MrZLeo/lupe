@@ -1,5 +1,5 @@
 #include "line_frame.hpp"
-#include "loupe/scroll.hpp"
+#include "lupe/scroll.hpp"
 
 #include <algorithm>
 #include <ftxui/dom/elements.hpp>
@@ -11,7 +11,7 @@
 #include <string>
 #include <utility>
 
-namespace loupe {
+namespace lupe {
 namespace {
 
 class LineFrame final : public ftxui::Node {
@@ -120,4 +120,4 @@ ftxui::Element scroll_progress_indicator(const ScrollState &scroll) {
   return std::make_shared<ScrollProgressIndicator>(scroll);
 }
 
-} // namespace loupe
+} // namespace lupe

@@ -1,8 +1,8 @@
-#include "loupe/format_detector.hpp"
+#include "lupe/format_detector.hpp"
 
 #include "json_helpers.hpp"
 #include "jsonl_reader.hpp"
-#include "loupe/log_format.hpp"
+#include "lupe/log_format.hpp"
 
 #include <cstddef>
 #include <optional>
@@ -12,7 +12,7 @@
 #include <string>
 #include <string_view>
 
-namespace loupe {
+namespace lupe {
 namespace {
 
 // Scanning more of the file rarely changes the outcome: native formats
@@ -289,4 +289,4 @@ std::optional<LogFormat> detect_log_format(std::string_view content) {
   return winner;
 }
 
-} // namespace loupe
+} // namespace lupe

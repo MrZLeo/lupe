@@ -1,8 +1,8 @@
-#include "loupe/log_format.hpp"
+#include "lupe/log_format.hpp"
 #include <optional>
 #include <string_view>
 
-namespace loupe {
+namespace lupe {
 
 std::optional<LogFormat> parse_log_format(std::string_view value) {
   if (value == "pi") {
@@ -49,4 +49,4 @@ std::string_view log_format_name(LogFormat format) {
   return "unknown";
 }
 
-} // namespace loupe
+} // namespace lupe

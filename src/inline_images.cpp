@@ -1,5 +1,5 @@
 #include "inline_images.hpp"
-#include "loupe/kitty_graphics.hpp"
+#include "lupe/kitty_graphics.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace loupe {
+namespace lupe {
 
 class InlineImages::Row final : public ftxui::Node {
 public:
@@ -164,4 +164,4 @@ InlineImages::frame(ftxui::Element document, std::ostream &output) {
   return std::make_shared<Frame>(*this, std::move(document), output);
 }
 
-} // namespace loupe
+} // namespace lupe

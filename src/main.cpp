@@ -26,25 +26,25 @@
 
 #include "inline_images.hpp"
 #include "line_frame.hpp"
-#include "loupe/kitty_graphics.hpp"
-#include "loupe/log_format.hpp"
-#include "loupe/log_message.hpp"
-#include "loupe/log_parser.hpp"
-#include "loupe/markdown_text.hpp"
-#include "loupe/message_projection.hpp"
-#include "loupe/scroll.hpp"
-#include "loupe/search.hpp"
-#include "loupe/session_ir.hpp"
-#include "loupe/session_parser.hpp"
-#include "loupe/structured_text.hpp"
-#include "loupe/synchronized_output.hpp"
-#include "loupe/version.hpp"
+#include "lupe/kitty_graphics.hpp"
+#include "lupe/log_format.hpp"
+#include "lupe/log_message.hpp"
+#include "lupe/log_parser.hpp"
+#include "lupe/markdown_text.hpp"
+#include "lupe/message_projection.hpp"
+#include "lupe/scroll.hpp"
+#include "lupe/search.hpp"
+#include "lupe/session_ir.hpp"
+#include "lupe/session_parser.hpp"
+#include "lupe/structured_text.hpp"
+#include "lupe/synchronized_output.hpp"
+#include "lupe/version.hpp"
 #include "message_overview.hpp"
 
 namespace {
 struct CliOptions {
   std::filesystem::path path;
-  std::optional<loupe::LogFormat> format;
+  std::optional<lupe::LogFormat> format;
 };
 
 struct CliParseResult {
@@ -73,11 +73,11 @@ struct ImageDisplayRow {
 
 struct AppState {
   std::filesystem::path path;
-  loupe::LogFormat format{loupe::LogFormat::Generic};
-  loupe::SessionParseResult session;
-  loupe::ParseResult parsed;
+  lupe::LogFormat format{lupe::LogFormat::Generic};
+  lupe::SessionParseResult session;
+  lupe::ParseResult parsed;
   std::size_t selected{0};
-  loupe::ScrollState scroll;
+  lupe::ScrollState scroll;
   std::string status;
   bool search_active{false};
   std::string search_input;
@@ -98,7 +98,7 @@ struct AppState {
   std::optional<std::size_t> overview_hovered;
   ftxui::Box overview_box;
   std::map<std::size_t, ImageDisplayRow> image_rows;
-  loupe::InlineImages inline_images{std::getenv("TMUX") != nullptr};
+  lupe::InlineImages inline_images{std::getenv("TMUX") != nullptr};
 };
 
 struct BrowserEntry {
@@ -112,7 +112,7 @@ struct BrowserState {
   std::vector<BrowserEntry> entries;
   std::vector<std::size_t> visible_entries;
   std::size_t selected{0};
-  loupe::ScrollState scroll;
+  lupe::ScrollState scroll;
   std::string status;
   bool search_active{false};
   std::string search_input;
@@ -120,7 +120,7 @@ struct BrowserState {
 };
 
 struct ApplicationState {
-  loupe::LogFormat format{loupe::LogFormat::Generic};
+  lupe::LogFormat format{lupe::LogFormat::Generic};
   BrowserState browser;
   AppState viewer;
   bool browser_available{false};
@@ -150,7 +150,7 @@ int wheel_rows(ftxui::Event &event) {
 }
 
 CliParseResult parse_cli_args(int argc, char **argv) {
-  const char *program_name = argc > 0 && argv[0] != nullptr ? argv[0] : "loupe";
+  const char *program_name = argc > 0 && argv[0] != nullptr ? argv[0] : "lupe";
 
   CliParseResult result;
   Argum::Parser parser;
@@ -165,7 +165,7 @@ CliParseResult parse_cli_args(int argc, char **argv) {
   parser.add(Argum::Option("--version")
                  .help("show program's version number and exit")
                  .handler([]() {
-                   std::cout << "loupe " << LOUPE_VERSION << '\n';
+                   std::cout << "lupe " << LUPE_VERSION << '\n';
                    // Safe: option handling runs before any worker threads.
                    std::exit(EXIT_SUCCESS); // NOLINT(concurrency-mt-unsafe)
                  }));
@@ -173,7 +173,7 @@ CliParseResult parse_cli_args(int argc, char **argv) {
                  .help("log format: pi, codex, codex-exec, claudecode, "
                        "deepseek-harness, or generic (default: auto-detect)")
                  .handler([&](const std::string_view &value) {
-                   result.options.format = loupe::parse_log_format(value);
+                   result.options.format = lupe::parse_log_format(value);
                    if (!result.options.format) {
                      result.format_error =
                          "unsupported log format: "
@@ -210,7 +210,7 @@ CliParseResult parse_cli_args(int argc, char **argv) {
   }
   // Without --format, each opened log is auto-detected on load.
   if (!result.options.format) {
-    result.options.format = loupe::LogFormat::Auto;
+    result.options.format = lupe::LogFormat::Auto;
   }
 
   result.run = true;
@@ -241,14 +241,14 @@ std::string clipped_label(std::string_view text) {
   return std::string{text.substr(0, kMaxLabelLength - 3)} + "...";
 }
 
-ftxui::Color diagnostic_color(loupe::DiagnosticSeverity severity) {
+ftxui::Color diagnostic_color(lupe::DiagnosticSeverity severity) {
   switch (severity) {
-  case loupe::DiagnosticSeverity::Warning:
+  case lupe::DiagnosticSeverity::Warning:
     return ftxui::Color::YellowLight;
-  case loupe::DiagnosticSeverity::Error:
-  case loupe::DiagnosticSeverity::Fatal:
+  case lupe::DiagnosticSeverity::Error:
+  case lupe::DiagnosticSeverity::Fatal:
     return ftxui::Color::RedLight;
-  case loupe::DiagnosticSeverity::Info:
+  case lupe::DiagnosticSeverity::Info:
   default:
     return ftxui::Color::GrayLight;
   }
@@ -359,7 +359,7 @@ std::string browser_query(const BrowserState &state) {
 }
 
 void apply_browser_filter(BrowserState &state) {
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   state.visible_entries.clear();
   const std::string query = browser_query(state);
 
@@ -477,12 +477,12 @@ void update_browser_search_preview(BrowserState &state) {
 }
 
 void move_browser_up(BrowserState &state, std::size_t amount) {
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   state.selected -= std::min(state.selected, amount);
 }
 
 void move_browser_down(BrowserState &state, std::size_t amount) {
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   if (state.visible_entries.empty()) {
     state.selected = 0;
     return;
@@ -513,11 +513,11 @@ void resolve_pending_browser_recenter(BrowserState &state) {
   const int total_rows =
       static_cast<int>(state.visible_entries.size()) * kBrowserRowsPerEntry;
   state.scroll.max_top_row =
-      loupe::max_top_row_for(total_rows, state.scroll.viewport_rows);
+      lupe::max_top_row_for(total_rows, state.scroll.viewport_rows);
   // The focused element is the two-row entry block; its last row is
   // first_row + 1, matching what LineFrame centers on during layout.
   state.scroll.top_row =
-      std::clamp(loupe::centered_top_row(first_row, first_row + 1,
+      std::clamp(lupe::centered_top_row(first_row, first_row + 1,
                                          state.scroll.viewport_rows),
                  0, state.scroll.max_top_row);
 }
@@ -546,14 +546,14 @@ const BrowserEntry *selected_browser_entry(const BrowserState &state) {
 }
 
 AppState
-load_viewer_state(const std::filesystem::path &path, loupe::LogFormat format) {
-  auto session = loupe::parse_session_file(path, format);
-  loupe::ParseResult parsed;
+load_viewer_state(const std::filesystem::path &path, lupe::LogFormat format) {
+  auto session = lupe::parse_session_file(path, format);
+  lupe::ParseResult parsed;
   if (!session.has_fatal_error()) {
-    parsed.messages = loupe::make_display_messages(session.session);
+    parsed.messages = lupe::make_display_messages(session.session);
   }
   for (const auto &diagnostic : session.diagnostics) {
-    parsed.errors.push_back(loupe::format_diagnostic(diagnostic));
+    parsed.errors.push_back(lupe::format_diagnostic(diagnostic));
   }
   parsed.diagnostics = session.diagnostics;
   AppState loaded;
@@ -725,7 +725,7 @@ void truncate_display_line(DisplayLine &line, std::size_t width) {
 }
 
 StyledSegment
-style_from_markdown(const loupe::MarkdownSpan &span, ftxui::Color base_color) {
+style_from_markdown(const lupe::MarkdownSpan &span, ftxui::Color base_color) {
   return StyledSegment{
       .text = span.text,
       .color = base_color,
@@ -738,11 +738,11 @@ style_from_markdown(const loupe::MarkdownSpan &span, ftxui::Color base_color) {
 }
 
 std::vector<StyledSegment>
-segments_from_markdown(const std::vector<loupe::MarkdownSpan> &spans,
+segments_from_markdown(const std::vector<lupe::MarkdownSpan> &spans,
                        ftxui::Color base_color) {
   std::vector<StyledSegment> segments;
   segments.reserve(spans.size());
-  for (const loupe::MarkdownSpan &span : spans) {
+  for (const lupe::MarkdownSpan &span : spans) {
     segments.push_back(style_from_markdown(span, base_color));
   }
   return segments;
@@ -751,14 +751,14 @@ segments_from_markdown(const std::vector<loupe::MarkdownSpan> &spans,
 void append_markdown_lines(std::string_view content, std::size_t width,
                            std::vector<DisplayLine> &out) {
   using ftxui::Color;
-  for (const loupe::MarkdownBlock &block :
-       loupe::parse_markdown_text(content)) {
+  for (const lupe::MarkdownBlock &block :
+       lupe::parse_markdown_text(content)) {
     switch (block.kind) {
-    case loupe::MarkdownBlockKind::Blank:
+    case lupe::MarkdownBlockKind::Blank:
       out.emplace_back();
       break;
 
-    case loupe::MarkdownBlockKind::CodeBlock: {
+    case lupe::MarkdownBlockKind::CodeBlock: {
       std::size_t start = 0;
       while (start <= block.code.size()) {
         const std::size_t end = block.code.find('\n', start);
@@ -779,7 +779,7 @@ void append_markdown_lines(std::string_view content, std::size_t width,
       break;
     }
 
-    case loupe::MarkdownBlockKind::Heading: {
+    case lupe::MarkdownBlockKind::Heading: {
       const Color heading_color =
           block.level <= 2 ? Color::White : Color::GrayLight;
       std::vector<StyledSegment> segments =
@@ -791,7 +791,7 @@ void append_markdown_lines(std::string_view content, std::size_t width,
       break;
     }
 
-    case loupe::MarkdownBlockKind::ListItem: {
+    case lupe::MarkdownBlockKind::ListItem: {
       const std::size_t indent =
           static_cast<std::size_t>(std::min(block.level, 6)) * 2;
       StyledSegment prefix{
@@ -808,7 +808,7 @@ void append_markdown_lines(std::string_view content, std::size_t width,
       break;
     }
 
-    case loupe::MarkdownBlockKind::Quote: {
+    case lupe::MarkdownBlockKind::Quote: {
       std::vector<StyledSegment> segments =
           segments_from_markdown(block.spans, Color::GrayLight);
       for (StyledSegment &segment : segments) {
@@ -820,7 +820,7 @@ void append_markdown_lines(std::string_view content, std::size_t width,
       break;
     }
 
-    case loupe::MarkdownBlockKind::Paragraph:
+    case lupe::MarkdownBlockKind::Paragraph:
       append_wrapped_line(out,
                           segments_from_markdown(block.spans, Color::GrayLight),
                           StyledSegment{}, 0, width);
@@ -888,7 +888,7 @@ render_display_line(const DisplayLine &line, std::string_view search_query,
     if (segment.text.empty()) {
       continue;
     }
-    const auto ranges = loupe::find_text_matches(segment.text, search_query);
+    const auto ranges = lupe::find_text_matches(segment.text, search_query);
     std::size_t cursor = 0;
     for (const auto &range : ranges) {
       if (range.offset > cursor) {
@@ -918,7 +918,7 @@ ftxui::Element row_spacer(std::size_t rows) {
 }
 
 void clamp_selection(AppState &state) {
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   if (state.parsed.messages.empty()) {
     state.selected = 0;
     return;
@@ -928,11 +928,11 @@ void clamp_selection(AppState &state) {
 
 void refresh_search_matches(AppState &state) {
   state.search_matches =
-      loupe::find_message_matches(state.parsed.messages, state.search_query);
+      lupe::find_message_matches(state.parsed.messages, state.search_query);
 }
 
 void restore_search_origin(AppState &state) {
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   if (state.parsed.messages.empty()) {
     state.selected = 0;
     return;
@@ -942,7 +942,7 @@ void restore_search_origin(AppState &state) {
 }
 
 // Messages with an empty body and no annotations are already one line.
-bool message_foldable(const loupe::LogMessage &message) {
+bool message_foldable(const lupe::LogMessage &message) {
   return !message.content.empty()
       || !message.annotations.empty()
       || !message.images.empty();
@@ -974,7 +974,7 @@ void toggle_fold(AppState &state) {
   }
   ensure_fold_state_size(state);
   state.folded[state.selected] = !state.folded[state.selected];
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   state.lines_width = -1;
   state.status.clear();
 }
@@ -997,7 +997,7 @@ void set_all_folds(AppState &state, bool folded) {
     state.status = folded ? "nothing to fold" : "no folds";
     return;
   }
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   state.lines_width = -1;
   state.status = std::string{folded ? "folded " : "unfolded "}
                + std::to_string(changed)
@@ -1018,7 +1018,7 @@ std::string search_progress(const AppState &state) {
   }
 
   const auto ordinal =
-      loupe::match_ordinal(state.search_matches, state.selected);
+      lupe::match_ordinal(state.search_matches, state.selected);
   if (!ordinal.has_value()) {
     return std::to_string(state.search_matches.size()) + " matches " + label;
   }
@@ -1031,7 +1031,7 @@ std::string search_progress(const AppState &state) {
 }
 
 void begin_search(AppState &state) {
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   state.search_active = true;
   state.search_origin_selected = state.selected;
   state.search_input.clear();
@@ -1050,10 +1050,10 @@ void update_search_preview(AppState &state) {
   }
 
   state.search_matches =
-      loupe::find_message_matches(state.parsed.messages, state.search_input);
+      lupe::find_message_matches(state.parsed.messages, state.search_input);
   const auto match =
-      loupe::find_next_match(state.search_matches, state.search_origin_selected,
-                             loupe::SearchDirection::Forward, true);
+      lupe::find_next_match(state.search_matches, state.search_origin_selected,
+                             lupe::SearchDirection::Forward, true);
   if (match.has_value()) {
     state.selected = *match;
     unfold_message(state, *match);
@@ -1083,8 +1083,8 @@ void commit_search(AppState &state) {
   refresh_search_matches(state);
 
   const auto match =
-      loupe::find_next_match(state.search_matches, state.search_origin_selected,
-                             loupe::SearchDirection::Forward, true);
+      lupe::find_next_match(state.search_matches, state.search_origin_selected,
+                             lupe::SearchDirection::Forward, true);
   if (!match.has_value()) {
     restore_search_origin(state);
     state.status = "no matches";
@@ -1093,11 +1093,11 @@ void commit_search(AppState &state) {
 
   state.selected = *match;
   unfold_message(state, *match);
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   state.status.clear();
 }
 
-void jump_to_search_match(AppState &state, loupe::SearchDirection direction,
+void jump_to_search_match(AppState &state, lupe::SearchDirection direction,
                           bool include_selected) {
   if (state.search_query.empty()) {
     state.status = "no active search";
@@ -1105,7 +1105,7 @@ void jump_to_search_match(AppState &state, loupe::SearchDirection direction,
   }
 
   refresh_search_matches(state);
-  const auto match = loupe::find_next_match(
+  const auto match = lupe::find_next_match(
       state.search_matches, state.selected, direction, include_selected);
   if (!match.has_value()) {
     state.status = "no matches";
@@ -1114,17 +1114,17 @@ void jump_to_search_match(AppState &state, loupe::SearchDirection direction,
 
   state.selected = *match;
   unfold_message(state, *match);
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   state.status.clear();
 }
 
 void move_up(AppState &state, std::size_t amount) {
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   state.selected -= std::min(state.selected, amount);
 }
 
 void move_down(AppState &state, std::size_t amount) {
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
   if (state.parsed.messages.empty()) {
     state.selected = 0;
     return;
@@ -1149,7 +1149,7 @@ void reload(AppState &state) {
   state.overview_hovered.reset();
   clamp_selection(state);
   if (!state.search_query.empty()) {
-    jump_to_search_match(state, loupe::SearchDirection::Forward, true);
+    jump_to_search_match(state, lupe::SearchDirection::Forward, true);
   }
   state.status =
       "reloaded " + std::to_string(state.parsed.messages.size()) + " messages";
@@ -1169,7 +1169,7 @@ void open_diagnostics(AppState &state) {
 
 void close_diagnostics(AppState &state) {
   state.show_diagnostics = false;
-  loupe::follow_selection(state.scroll);
+  lupe::follow_selection(state.scroll);
 }
 
 bool handle_diagnostics_event(AppState &state, const ftxui::Event &event) {
@@ -1180,27 +1180,27 @@ bool handle_diagnostics_event(AppState &state, const ftxui::Event &event) {
     return true;
   }
   if (event == ftxui::Event::j || event == ftxui::Event::ArrowDown) {
-    loupe::scroll_by_rows(state.scroll, 1);
+    lupe::scroll_by_rows(state.scroll, 1);
     return true;
   }
   if (event == ftxui::Event::k || event == ftxui::Event::ArrowUp) {
-    loupe::scroll_by_rows(state.scroll, -1);
+    lupe::scroll_by_rows(state.scroll, -1);
     return true;
   }
   if (event == ftxui::Event::PageDown) {
-    loupe::scroll_by_rows(state.scroll, static_cast<int>(kPageMove));
+    lupe::scroll_by_rows(state.scroll, static_cast<int>(kPageMove));
     return true;
   }
   if (event == ftxui::Event::PageUp) {
-    loupe::scroll_by_rows(state.scroll, -static_cast<int>(kPageMove));
+    lupe::scroll_by_rows(state.scroll, -static_cast<int>(kPageMove));
     return true;
   }
   if (event == ftxui::Event::g || event == ftxui::Event::Home) {
-    loupe::scroll_to_top(state.scroll);
+    lupe::scroll_to_top(state.scroll);
     return true;
   }
   if (event == ftxui::Event::G || event == ftxui::Event::End) {
-    loupe::scroll_to_bottom(state.scroll);
+    lupe::scroll_to_bottom(state.scroll);
     return true;
   }
   if (event == ftxui::Event::r) {
@@ -1216,7 +1216,7 @@ bool handle_diagnostics_event(AppState &state, const ftxui::Event &event) {
 // fit, and the hidden source-line count. Muted throughout so folded blocks
 // recede while skimming; the header above keeps the role color.
 DisplayLine
-fold_summary_line(const loupe::LogMessage &message, std::size_t width) {
+fold_summary_line(const lupe::LogMessage &message, std::size_t width) {
   using ftxui::Color;
 
   // Mirror the body rendering's source text (see append_message_display_
@@ -1225,7 +1225,7 @@ fold_summary_line(const loupe::LogMessage &message, std::size_t width) {
       message.role == "tool" || message.role == "unknown";
   const std::string clipped = clipped_content(
       verbatim_body ? message.content
-                    : loupe::format_structured_text(message.content));
+                    : lupe::format_structured_text(message.content));
 
   std::string_view rest{clipped};
   std::string_view preview;
@@ -1331,7 +1331,7 @@ fold_summary_line(const loupe::LogMessage &message, std::size_t width) {
 // Expand one message into display lines: a single-line header, the wrapped
 // body, wrapped annotations, and a trailing blank separator line. A folded
 // message emits only the header, a one-line summary, and the separator.
-void append_message_display_lines(const loupe::LogMessage &message,
+void append_message_display_lines(const lupe::LogMessage &message,
                                   std::size_t width, bool folded,
                                   std::vector<DisplayLine> &out) {
   using ftxui::Color;
@@ -1339,7 +1339,7 @@ void append_message_display_lines(const loupe::LogMessage &message,
   DisplayLine header{
       StyledSegment{
           .text = message.role,
-          .color = loupe::message_role_color(message.role),
+          .color = lupe::message_role_color(message.role),
           .bold = true,
       },
   };
@@ -1376,7 +1376,7 @@ void append_message_display_lines(const loupe::LogMessage &message,
       message.role == "tool" || message.role == "unknown";
   const std::string clipped = clipped_content(
       verbatim_body ? message.content
-                    : loupe::format_structured_text(message.content));
+                    : lupe::format_structured_text(message.content));
   if (message.content.empty()) {
     out.push_back({StyledSegment{.text = "(empty)", .dim = true}});
   } else if (verbatim_body) {
@@ -1421,7 +1421,7 @@ bool ensure_display_lines(AppState &state) {
   state.message_rows.clear();
   state.image_rows.clear();
   const std::size_t wrap_width = static_cast<std::size_t>(
-      std::max(16, terminal_width - loupe::kMessageOverviewWidth - 3));
+      std::max(16, terminal_width - lupe::kMessageOverviewWidth - 3));
   for (std::size_t index = 0; index < state.parsed.messages.size(); ++index) {
     const std::size_t first_row = state.display_lines.size();
     const bool folded = index < state.folded.size() && state.folded[index];
@@ -1431,7 +1431,7 @@ bool ensure_display_lines(AppState &state) {
     if (!folded && !message.images.empty()) {
       state.display_lines.pop_back(); // Put image cells before the separator.
       for (std::size_t image = 0; image < message.images.size(); ++image) {
-        for (int row = 0; row < loupe::kKittyImageRows; ++row) {
+        for (int row = 0; row < lupe::kKittyImageRows; ++row) {
           state.image_rows.emplace(state.display_lines.size(),
                                    ImageDisplayRow{image, row});
           state.display_lines.emplace_back();
@@ -1480,7 +1480,7 @@ std::size_t search_focus_row(const AppState &state, std::string_view query,
   }
   for (std::size_t row = first_row; row < end_row; ++row) {
     for (const StyledSegment &segment : state.display_lines[row]) {
-      if (!loupe::find_text_matches(segment.text, query).empty()) {
+      if (!lupe::find_text_matches(segment.text, query).empty()) {
         return row;
       }
     }
@@ -1514,10 +1514,10 @@ void resolve_pending_recenter(AppState &state) {
                                               : static_cast<int>(first_row);
   const int focus_last = match_row != kNoRow ? static_cast<int>(match_row)
                                              : static_cast<int>(end_row) - 1;
-  state.scroll.max_top_row = loupe::max_top_row_for(
+  state.scroll.max_top_row = lupe::max_top_row_for(
       static_cast<int>(state.display_lines.size()), state.scroll.viewport_rows);
   state.scroll.top_row =
-      std::clamp(loupe::centered_top_row(focus_first, focus_last,
+      std::clamp(lupe::centered_top_row(focus_first, focus_last,
                                          state.scroll.viewport_rows),
                  0, state.scroll.max_top_row);
 }
@@ -1560,7 +1560,7 @@ bool handle_message_overview_mouse(AppState &state, ftxui::Event &event) {
     return false;
   }
 
-  const auto hovered = loupe::message_overview_index_at(
+  const auto hovered = lupe::message_overview_index_at(
       state.overview_box, state.parsed.messages.size(), event.mouse().x,
       event.mouse().y);
   state.overview_hovered = hovered;
@@ -1571,7 +1571,7 @@ bool handle_message_overview_mouse(AppState &state, ftxui::Event &event) {
   if (event.mouse().button == ftxui::Mouse::Left) {
     if (event.mouse().motion == ftxui::Mouse::Pressed) {
       state.selected = *hovered;
-      loupe::follow_selection(state.scroll);
+      lupe::follow_selection(state.scroll);
       state.status.clear();
       return true;
     }
@@ -1668,7 +1668,7 @@ ftxui::Element render_browser(BrowserState &state) {
                 + std::to_string(state.visible_entries.size());
 
   Elements status_items{
-      text(" Loupe ")
+      text(" Lupe ")
           | bold
           | color(Color::Black)
           | bgcolor(Color::MagentaLight),
@@ -1703,7 +1703,7 @@ ftxui::Element render_browser(BrowserState &state) {
   return vbox({
              hbox(std::move(status_items)),
              separatorEmpty(),
-             loupe::line_frame(vbox(std::move(rows)) | vscroll_indicator,
+             lupe::line_frame(vbox(std::move(rows)) | vscroll_indicator,
                                state.scroll)
                  | flex,
              separatorEmpty(),
@@ -1737,8 +1737,8 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
     for (const auto &diagnostic : state.parsed.diagnostics) {
       const Color entry_color = diagnostic_color(diagnostic.severity);
       const bool fatal =
-          diagnostic.severity == loupe::DiagnosticSeverity::Fatal;
-      Element severity = text(loupe::severity_name(diagnostic.severity))
+          diagnostic.severity == lupe::DiagnosticSeverity::Fatal;
+      Element severity = text(lupe::severity_name(diagnostic.severity))
                        | color(entry_color)
                        | size(WIDTH, EQUAL, 9);
       if (fatal) {
@@ -1793,10 +1793,10 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
                                ? static_cast<int>(focus_match_row)
                                : static_cast<int>(selected_rows.second) - 1;
       const int target =
-          loupe::centered_top_row(focus_first, focus_last, viewport_rows);
+          lupe::centered_top_row(focus_first, focus_last, viewport_rows);
       state.scroll.top_row = std::clamp(
           target, 0,
-          loupe::max_top_row_for(static_cast<int>(total_rows), viewport_rows));
+          lupe::max_top_row_for(static_cast<int>(total_rows), viewport_rows));
     }
     const std::size_t top = static_cast<std::size_t>(
         std::clamp(state.scroll.top_row, 0, static_cast<int>(total_rows)));
@@ -1859,7 +1859,7 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
         flush_message();
         current_message = message_index;
       }
-      const loupe::LogMessage &message = state.parsed.messages[message_index];
+      const lupe::LogMessage &message = state.parsed.messages[message_index];
       const bool selected_message = message_index == state.selected;
       const bool current_search_match =
           selected_message
@@ -1874,7 +1874,7 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
         const auto &image = image_row->second;
         line_element = state.inline_images.line(
             message.images[image.image_index], image.row,
-            std::max(1, state.lines_width - loupe::kMessageOverviewWidth - 3),
+            std::max(1, state.lines_width - lupe::kMessageOverviewWidth - 3),
             image_base_directories, std::cout);
       } else {
         line_element =
@@ -1883,7 +1883,7 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
       }
       if (selected_message && row == selection_bar_row) {
         message_elements.push_back(hbox({
-            text("▌") | color(loupe::message_role_color(message.role)),
+            text("▌") | color(lupe::message_role_color(message.role)),
             text(" "),
             std::move(line_element),
         }));
@@ -1913,13 +1913,13 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
                 + std::to_string(state.parsed.messages.size());
 
   Elements status_items{
-      text(" Loupe ")
+      text(" Lupe ")
           | bold
           | color(Color::Black)
           | bgcolor(Color::MagentaLight),
       text("  " + count) | color(Color::GrayLight),
       text("  " + cursor) | color(Color::GrayLight),
-      text("  " + std::string{loupe::log_format_name(state.format)})
+      text("  " + std::string{lupe::log_format_name(state.format)})
           | color(Color::GrayLight),
       // The filename identifies the open log; keep it whole and let the
       // optional trailers (inline error, status, search) shrink instead.
@@ -1989,7 +1989,7 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
       && state.overview_hovered.has_value()
       && *state.overview_hovered < state.parsed.messages.size()) {
     const std::size_t hovered = *state.overview_hovered;
-    const loupe::LogMessage &message = state.parsed.messages[hovered];
+    const lupe::LogMessage &message = state.parsed.messages[hovered];
     footer_items.push_back(text(" "
                                 + message.role
                                 + " "
@@ -1998,10 +1998,10 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
                                 + std::to_string(state.parsed.messages.size())
                                 + "  click jump ")
                            | bold
-                           | color(loupe::message_role_color(message.role)));
+                           | color(lupe::message_role_color(message.role)));
   }
   footer_items.push_back(text(" "));
-  footer_items.push_back(loupe::scroll_progress_indicator(state.scroll)
+  footer_items.push_back(lupe::scroll_progress_indicator(state.scroll)
                          | color(Color::GrayLight));
   const Element footer = hbox(std::move(footer_items));
 
@@ -2010,13 +2010,13 @@ ftxui::Element render(AppState &state, bool can_return_to_browser) {
     scroll_content = std::move(scroll_content) | vscroll_indicator;
   }
   Element body =
-      loupe::line_frame(std::move(scroll_content), state.scroll) | flex;
+      lupe::line_frame(std::move(scroll_content), state.scroll) | flex;
   if (show_message_overview) {
     body =
         hbox({
             std::move(body) | flex,
             separatorEmpty(),
-            loupe::message_overview(state.parsed.messages, state.selected,
+            lupe::message_overview(state.parsed.messages, state.selected,
                                     state.overview_hovered, state.overview_box),
         })
         | flex;
@@ -2069,12 +2069,12 @@ handle_event(AppState &state, ftxui::Event event, const ftxui::Closure &quit) {
   }
   if (const int rows = wheel_rows(event); rows != 0) {
     if (state.show_diagnostics) {
-      loupe::scroll_by_rows(state.scroll, rows);
+      lupe::scroll_by_rows(state.scroll, rows);
       return true;
     }
     resolve_pending_recenter(state);
     const int previous_top_row = state.scroll.top_row;
-    loupe::scroll_by_rows(state.scroll, rows);
+    lupe::scroll_by_rows(state.scroll, rows);
     // A wheel event that could not move the viewport (content fits, or at
     // an edge) must not move the selection either.
     if (!state.search_active && state.scroll.top_row != previous_top_row) {
@@ -2097,11 +2097,11 @@ handle_event(AppState &state, ftxui::Event event, const ftxui::Closure &quit) {
     return true;
   }
   if (event == ftxui::Event::n) {
-    jump_to_search_match(state, loupe::SearchDirection::Forward, false);
+    jump_to_search_match(state, lupe::SearchDirection::Forward, false);
     return true;
   }
   if (event == ftxui::Event::N) {
-    jump_to_search_match(state, loupe::SearchDirection::Backward, false);
+    jump_to_search_match(state, lupe::SearchDirection::Backward, false);
     return true;
   }
   if (event == ftxui::Event::Return) {
@@ -2199,7 +2199,7 @@ bool handle_browser_event(ApplicationState &state, ftxui::Event event,
   if (const int rows = wheel_rows(event); rows != 0) {
     resolve_pending_browser_recenter(browser);
     const int previous_top_row = browser.scroll.top_row;
-    loupe::scroll_by_rows(browser.scroll, rows);
+    lupe::scroll_by_rows(browser.scroll, rows);
     // A wheel event that could not move the viewport must not move the
     // selection either.
     if (browser.scroll.top_row != previous_top_row) {
@@ -2304,7 +2304,7 @@ int main(int argc, char **argv) {
   ApplicationState state;
   // parse_cli_args fills in Auto when --format is absent; value_or keeps
   // this access safe even if that invariant ever changes.
-  state.format = cli.options.format.value_or(loupe::LogFormat::Auto);
+  state.format = cli.options.format.value_or(lupe::LogFormat::Auto);
   if (path_was_omitted || is_directory_path(start_path)) {
     state.browser.root = start_path;
     state.browser_available = true;
@@ -2328,7 +2328,7 @@ int main(int argc, char **argv) {
   });
 
   {
-    const loupe::ScopedSynchronizedOutput synchronized_output(std::cout);
+    const lupe::ScopedSynchronizedOutput synchronized_output(std::cout);
     screen.Loop(component);
     state.viewer.inline_images.clear(std::cout);
   }

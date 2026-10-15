@@ -1,5 +1,5 @@
 #include "image_test_data.hpp"
-#include "loupe/kitty_graphics.hpp"
+#include "lupe/kitty_graphics.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -13,7 +13,7 @@
 
 TEST_CASE("prepare PNG pixels for direct Kitty transmission",
           "[kitty_graphics]") {
-  const auto prepared = loupe::prepare_kitty_image(image_test::image(), {});
+  const auto prepared = lupe::prepare_kitty_image(image_test::image(), {});
   REQUIRE(prepared);
   CHECK(prepared.format == 100);
   CHECK(prepared.width == 2);
@@ -24,7 +24,7 @@ TEST_CASE("prepare PNG pixels for direct Kitty transmission",
   noncanonical.pop_back(); // Missing padding is accepted and canonicalized.
   noncanonical.insert(20, "\r\n ");
   const auto normalized =
-      loupe::prepare_kitty_image(image_test::image(noncanonical), {});
+      lupe::prepare_kitty_image(image_test::image(noncanonical), {});
   REQUIRE(normalized);
   CHECK(normalized.payload == prepared.payload);
 }
@@ -32,7 +32,7 @@ TEST_CASE("prepare PNG pixels for direct Kitty transmission",
 TEST_CASE("decode non-PNG images to Kitty RGBA", "[kitty_graphics]") {
   auto image = image_test::image(image_test::bmp);
   image.mime_type = "image/png"; // Trust decoded bytes, not log MIME claims.
-  const auto prepared = loupe::prepare_kitty_image(image, {});
+  const auto prepared = lupe::prepare_kitty_image(image, {});
   REQUIRE(prepared);
   CHECK(prepared.format == 32);
   CHECK(prepared.width == 1);
@@ -40,7 +40,7 @@ TEST_CASE("decode non-PNG images to Kitty RGBA", "[kitty_graphics]") {
   CHECK(prepared.payload == "/wAA/w=="); // Opaque red.
 
   std::ostringstream output;
-  loupe::transmit_kitty_image(output, prepared, 42);
+  lupe::transmit_kitty_image(output, prepared, 42);
   CHECK(output.str()
         == "\x1b_Ga=t,t=d,f=32,i=42,s=1,v=1,m=0,q=2;/wAA/w==\x1b\\");
 }
@@ -49,7 +49,7 @@ TEST_CASE("decode JPEG and GIF images before using the Kitty wire format",
           "[kitty_graphics]") {
   for (const auto data : {image_test::jpeg, image_test::gif}) {
     const auto prepared =
-        loupe::prepare_kitty_image(image_test::image(data), {});
+        lupe::prepare_kitty_image(image_test::image(data), {});
     REQUIRE(prepared);
     CHECK(prepared.format == 32);
     CHECK(prepared.width == 1);
@@ -64,25 +64,25 @@ TEST_CASE("reject invalid image payloads before sending commands",
        {"not base64!", "A", "A===", "eB==", "eA=", "eA==A", "=eA=", "eA===="}) {
     CAPTURE(invalid);
     const auto prepared =
-        loupe::prepare_kitty_image(image_test::image(invalid), {});
+        lupe::prepare_kitty_image(image_test::image(invalid), {});
     REQUIRE_FALSE(prepared);
     CHECK(prepared.error.contains("base64"));
     std::ostringstream output;
-    loupe::transmit_kitty_image(output, prepared, 42);
+    lupe::transmit_kitty_image(output, prepared, 42);
     CHECK(output.str().empty());
   }
   for (const auto invalid : {"", "eA==", "iVBORw0KGgo="}) {
     CAPTURE(invalid);
-    CHECK_FALSE(loupe::prepare_kitty_image(image_test::image(invalid), {}));
+    CHECK_FALSE(lupe::prepare_kitty_image(image_test::image(invalid), {}));
   }
   const auto missing =
-      loupe::prepare_kitty_image(loupe::DisplayImage{.inline_data = true}, {});
+      lupe::prepare_kitty_image(lupe::DisplayImage{.inline_data = true}, {});
   REQUIRE_FALSE(missing);
   CHECK(missing.error.contains("unavailable"));
 
   const auto oversized =
       image_test::image(std::string(32 * 1024 * 1024 + 1, 'A'));
-  CHECK(loupe::prepare_kitty_image(oversized, {}).error.contains("limit"));
+  CHECK(lupe::prepare_kitty_image(oversized, {}).error.contains("limit"));
 }
 
 TEST_CASE("reject oversized image dimensions before decoding pixels",
@@ -92,7 +92,7 @@ TEST_CASE("reject oversized image dimensions before decoding pixels",
       "iVBORw0KGgoAAAANSUhEUgAAIAAAACAACAYAAAD0In+KAAAADklEQVR4nGP4z8DwHwQB"
       "EPgD/U6VwW8AAAAASUVORK5CYII=";
   const auto prepared =
-      loupe::prepare_kitty_image(image_test::image(oversized_png), {});
+      lupe::prepare_kitty_image(image_test::image(oversized_png), {});
   REQUIRE_FALSE(prepared);
   CHECK(prepared.error.contains("16 megapixel"));
 }
@@ -101,7 +101,7 @@ TEST_CASE("read local image references without launching a viewer",
           "[kitty_graphics]") {
   const auto directory =
       std::filesystem::temp_directory_path()
-      / ("loupe-kitty-test-"
+      / ("lupe-kitty-test-"
          + std::to_string(
              std::chrono::steady_clock::now().time_since_epoch().count()));
   REQUIRE(std::filesystem::create_directory(directory));
@@ -122,12 +122,12 @@ TEST_CASE("read local image references without launching a viewer",
   }
   const std::vector<std::filesystem::path> bases{directory / "missing",
                                                  directory};
-  const auto relative = loupe::prepare_kitty_image(
-      loupe::DisplayImage{.url = "image data.bmp"}, bases);
+  const auto relative = lupe::prepare_kitty_image(
+      lupe::DisplayImage{.url = "image data.bmp"}, bases);
   REQUIRE(relative);
   CHECK(relative.payload == "/wAA/w==");
   const auto absolute =
-      loupe::prepare_kitty_image(loupe::DisplayImage{.url = path.string()}, {});
+      lupe::prepare_kitty_image(lupe::DisplayImage{.url = path.string()}, {});
   REQUIRE(absolute);
   CHECK(absolute.payload == relative.payload);
 
@@ -137,12 +137,12 @@ TEST_CASE("read local image references without launching a viewer",
   }
   url_path.replace(url_path.find(' '), 1, "%20");
   for (const auto prefix : {"file://", "file://localhost"}) {
-    const auto local_url = loupe::prepare_kitty_image(
-        loupe::DisplayImage{.url = prefix + url_path}, {});
+    const auto local_url = lupe::prepare_kitty_image(
+        lupe::DisplayImage{.url = prefix + url_path}, {});
     REQUIRE(local_url);
     CHECK(local_url.payload == relative.payload);
   }
-  CHECK(loupe::prepare_kitty_image(loupe::DisplayImage{.url = "missing.png"},
+  CHECK(lupe::prepare_kitty_image(lupe::DisplayImage{.url = "missing.png"},
                                    bases)
             .error.contains("not found"));
 }
@@ -152,7 +152,7 @@ TEST_CASE("never fetch image URLs or pass unsafe references to a shell",
   for (const auto url :
        {"https://example.com/image.png", "http://localhost/private.png"}) {
     const auto prepared =
-        loupe::prepare_kitty_image(loupe::DisplayImage{.url = url}, {});
+        lupe::prepare_kitty_image(lupe::DisplayImage{.url = url}, {});
     REQUIRE_FALSE(prepared);
     CHECK(prepared.error.contains("not fetched"));
   }
@@ -161,17 +161,17 @@ TEST_CASE("never fetch image URLs or pass unsafe references to a shell",
         "file:///tmp/%2", "file://", "smb://host/image.png"}) {
     CAPTURE(url);
     CHECK_FALSE(
-        loupe::prepare_kitty_image(loupe::DisplayImage{.url = url}, {}));
+        lupe::prepare_kitty_image(lupe::DisplayImage{.url = url}, {}));
   }
-  CHECK_FALSE(loupe::prepare_kitty_image(
-      loupe::DisplayImage{.url = std::string{"image\0.png", 10}}, {}));
+  CHECK_FALSE(lupe::prepare_kitty_image(
+      lupe::DisplayImage{.url = std::string{"image\0.png", 10}}, {}));
 }
 
 TEST_CASE("Kitty direct transfers use bounded base64 chunks and quiet replies",
           "[kitty_graphics]") {
-  const loupe::KittyImage image{.payload = std::string(8200, 'A')};
+  const lupe::KittyImage image{.payload = std::string(8200, 'A')};
   std::ostringstream output;
-  loupe::transmit_kitty_image(output, image, 42);
+  lupe::transmit_kitty_image(output, image, 42);
   const std::string data = output.str();
   std::string_view remaining{data};
   std::string payload;
@@ -204,24 +204,24 @@ TEST_CASE("Kitty direct transfers use bounded base64 chunks and quiet replies",
 TEST_CASE("virtual Kitty placements are resized and deleted by ID",
           "[kitty_graphics]") {
   std::ostringstream output;
-  loupe::place_kitty_image(output, 42, 20, 12);
-  loupe::delete_kitty_image(output, 42);
+  lupe::place_kitty_image(output, 42, 20, 12);
+  lupe::delete_kitty_image(output, 42);
   CHECK(output.str()
         == "\x1b_Ga=p,U=1,i=42,p=1,c=20,r=12,q=2\x1b\\"
            "\x1b_Ga=d,d=I,i=42,q=2\x1b\\");
   output.str("");
-  loupe::place_kitty_image(output, 0, 20, 12);
-  loupe::place_kitty_image(output, 42, 0, 12);
-  loupe::delete_kitty_image(output, 0);
+  lupe::place_kitty_image(output, 0, 20, 12);
+  lupe::place_kitty_image(output, 42, 0, 12);
+  lupe::delete_kitty_image(output, 0);
   CHECK(output.str().empty());
 }
 
 TEST_CASE("wrap graphics commands for tmux passthrough", "[kitty_graphics]") {
   std::ostringstream output;
-  loupe::transmit_kitty_image(output, loupe::KittyImage{.payload = "eA=="}, 42,
+  lupe::transmit_kitty_image(output, lupe::KittyImage{.payload = "eA=="}, 42,
                               true);
-  loupe::place_kitty_image(output, 42, 20, 12, true);
-  loupe::delete_kitty_image(output, 42, true);
+  lupe::place_kitty_image(output, 42, 20, 12, true);
+  lupe::delete_kitty_image(output, 42, true);
   CHECK(output.str()
         == "\x1bPtmux;\x1b\x1b_Ga=t,t=d,f=100,i=42,m=0,q=2;eA==\x1b\x1b\\\x1b\\"
            "\x1bPtmux;\x1b\x1b_Ga=p,U=1,i=42,p=1,c=20,r=12,q=2\x1b\x1b\\\x1b\\"
@@ -230,10 +230,10 @@ TEST_CASE("wrap graphics commands for tmux passthrough", "[kitty_graphics]") {
 
 TEST_CASE("Kitty placeholders explicitly encode source coordinates",
           "[kitty_graphics]") {
-  CHECK(loupe::kitty_placeholder(0, 0) == "\U0010EEEE\u0305\u0305");
-  CHECK(loupe::kitty_placeholder(1, 3) == "\U0010EEEE\u030D\u0310");
-  CHECK(loupe::kitty_placeholder(11, 79) == "\U0010EEEE\u034C\u06E2");
-  CHECK(loupe::kitty_placeholder(-1, 0).empty());
-  CHECK(loupe::kitty_placeholder(0, 80).empty());
-  CHECK(loupe::kitty_placeholder(12, 0).empty());
+  CHECK(lupe::kitty_placeholder(0, 0) == "\U0010EEEE\u0305\u0305");
+  CHECK(lupe::kitty_placeholder(1, 3) == "\U0010EEEE\u030D\u0310");
+  CHECK(lupe::kitty_placeholder(11, 79) == "\U0010EEEE\u034C\u06E2");
+  CHECK(lupe::kitty_placeholder(-1, 0).empty());
+  CHECK(lupe::kitty_placeholder(0, 80).empty());
+  CHECK(lupe::kitty_placeholder(12, 0).empty());
 }

@@ -78,9 +78,9 @@ jobs:
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_EXE_LINKER_FLAGS=-static \
-            -DLoupe_ENABLE_LTO=ON \
+            -DLupe_ENABLE_LTO=ON \
             -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE" \
-            -DLoupe_ENABLE_UNIT_TESTING=ON
+            -DLupe_ENABLE_UNIT_TESTING=ON
           cmake --build build
 
       - name: Test
@@ -90,7 +90,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          binary=build/bin/Release/loupe
+          binary=build/bin/Release/lupe
           strip --strip-unneeded "$binary"
           file "$binary"
           if readelf -l "$binary" | grep -q "INTERP"; then
@@ -103,25 +103,25 @@ jobs:
           fi
           "$binary" --version
 
-          archive="loupe-${RELEASE_VERSION}-linux-x86_64.tar.gz"
+          archive="lupe-${RELEASE_VERSION}-linux-x86_64.tar.gz"
           mkdir -p dist package
-          install -m 0755 "$binary" package/loupe
+          install -m 0755 "$binary" package/lupe
           install -m 0644 LICENSE package/LICENSE
           install -m 0644 THIRD_PARTY_LICENSES.md package/THIRD_PARTY_LICENSES.md
           tar -C package -czf "dist/${archive}" \
-            loupe LICENSE THIRD_PARTY_LICENSES.md
+            lupe LICENSE THIRD_PARTY_LICENSES.md
 
           extracted="$(mktemp -d)"
           tar -C "$extracted" -xzf "dist/${archive}"
           test -f "$extracted/LICENSE"
           test -f "$extracted/THIRD_PARTY_LICENSES.md"
-          "$extracted/loupe" --version
+          "$extracted/lupe" --version
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: loupe-${{ env.RELEASE_VERSION }}-linux-x86_64
-          path: dist/loupe-${{ env.RELEASE_VERSION }}-linux-x86_64.tar.gz
+          name: lupe-${{ env.RELEASE_VERSION }}-linux-x86_64
+          path: dist/lupe-${{ env.RELEASE_VERSION }}-linux-x86_64.tar.gz
           if-no-files-found: error
 
   windows:
@@ -149,7 +149,7 @@ jobs:
 
       - name: Configure
         shell: pwsh
-        # No Loupe_ENABLE_LTO here: MSVC /GL performs whole-program ODR
+        # No Lupe_ENABLE_LTO here: MSVC /GL performs whole-program ODR
         # checks and currently fails (LNK1000/C1001) because first-party
         # targets define _HAS_EXCEPTIONS=0 while FTXUI does not. Re-enable
         # after unifying exception flags across dependencies.
@@ -158,7 +158,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded `
             -DCPM_SOURCE_CACHE="$env:CPM_SOURCE_CACHE" `
-            -DLoupe_ENABLE_UNIT_TESTING=ON
+            -DLupe_ENABLE_UNIT_TESTING=ON
 
       - name: Build
         run: cmake --build build --parallel
@@ -171,10 +171,10 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $binaryCandidates = @(
-            Get-ChildItem "build/bin" -Recurse -Filter "loupe.exe" -File
+            Get-ChildItem "build/bin" -Recurse -Filter "lupe.exe" -File
           )
           if ($binaryCandidates.Count -ne 1) {
-            throw "Expected one loupe.exe, found $($binaryCandidates.Count)"
+            throw "Expected one lupe.exe, found $($binaryCandidates.Count)"
           }
           $binary = $binaryCandidates[0].FullName
           Write-Host "Using release binary: $binary"
@@ -206,16 +206,16 @@ jobs:
             throw "Windows release depends on a dynamic MSVC runtime"
           }
 
-          $archive = "loupe-$env:RELEASE_VERSION-windows-x86_64.zip"
+          $archive = "lupe-$env:RELEASE_VERSION-windows-x86_64.zip"
           New-Item -ItemType Directory -Force dist, package | Out-Null
-          Copy-Item $binary package/loupe.exe
+          Copy-Item $binary package/lupe.exe
           Copy-Item LICENSE package/LICENSE
           Copy-Item THIRD_PARTY_LICENSES.md package/THIRD_PARTY_LICENSES.md
           Compress-Archive `
-            -Path package/loupe.exe, package/LICENSE, package/THIRD_PARTY_LICENSES.md `
+            -Path package/lupe.exe, package/LICENSE, package/THIRD_PARTY_LICENSES.md `
             -DestinationPath "dist/$archive"
 
-          $extracted = Join-Path $env:RUNNER_TEMP "loupe-release-check"
+          $extracted = Join-Path $env:RUNNER_TEMP "lupe-release-check"
           Expand-Archive -Path "dist/$archive" -DestinationPath $extracted
           if (-not (Test-Path "$extracted/LICENSE")) {
             throw "Release archive is missing LICENSE"
@@ -223,13 +223,13 @@ jobs:
           if (-not (Test-Path "$extracted/THIRD_PARTY_LICENSES.md")) {
             throw "Release archive is missing THIRD_PARTY_LICENSES.md"
           }
-          & "$extracted/loupe.exe" --version
+          & "$extracted/lupe.exe" --version
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: loupe-${{ env.RELEASE_VERSION }}-windows-x86_64
-          path: dist/loupe-${{ env.RELEASE_VERSION }}-windows-x86_64.zip
+          name: lupe-${{ env.RELEASE_VERSION }}-windows-x86_64
+          path: dist/lupe-${{ env.RELEASE_VERSION }}-windows-x86_64.zip
           if-no-files-found: error
 
   macos:
@@ -254,9 +254,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
-            -DLoupe_ENABLE_LTO=ON \
+            -DLupe_ENABLE_LTO=ON \
             -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE" \
-            -DLoupe_ENABLE_UNIT_TESTING=ON
+            -DLupe_ENABLE_UNIT_TESTING=ON
           cmake --build build
 
       - name: Test
@@ -266,7 +266,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          binary=build/bin/Release/loupe
+          binary=build/bin/Release/lupe
           strip -x "$binary"
           codesign --force --sign - "$binary"
           codesign --verify --verbose "$binary"
@@ -292,25 +292,25 @@ jobs:
             awk '/^[[:space:]]/ {print $1}')
           "$binary" --version
 
-          archive="loupe-${RELEASE_VERSION}-macos-universal.tar.gz"
+          archive="lupe-${RELEASE_VERSION}-macos-universal.tar.gz"
           mkdir -p dist package
-          install -m 0755 "$binary" package/loupe
+          install -m 0755 "$binary" package/lupe
           install -m 0644 LICENSE package/LICENSE
           install -m 0644 THIRD_PARTY_LICENSES.md package/THIRD_PARTY_LICENSES.md
           tar -C package -czf "dist/${archive}" \
-            loupe LICENSE THIRD_PARTY_LICENSES.md
+            lupe LICENSE THIRD_PARTY_LICENSES.md
 
           extracted="$(mktemp -d)"
           tar -C "$extracted" -xzf "dist/${archive}"
           test -f "$extracted/LICENSE"
           test -f "$extracted/THIRD_PARTY_LICENSES.md"
-          "$extracted/loupe" --version
+          "$extracted/lupe" --version
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: loupe-${{ env.RELEASE_VERSION }}-macos-universal
-          path: dist/loupe-${{ env.RELEASE_VERSION }}-macos-universal.tar.gz
+          name: lupe-${{ env.RELEASE_VERSION }}-macos-universal
+          path: dist/lupe-${{ env.RELEASE_VERSION }}-macos-universal.tar.gz
           if-no-files-found: error
 
   release:
@@ -333,7 +333,7 @@ jobs:
       - name: Download release artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: loupe-${{ env.RELEASE_VERSION }}-*
+          pattern: lupe-${{ env.RELEASE_VERSION }}-*
           path: dist
           merge-multiple: true
 
@@ -342,7 +342,7 @@ jobs:
           set -euo pipefail
 
           cd dist
-          sha256sum loupe-* > SHA256SUMS
+          sha256sum lupe-* > SHA256SUMS
 
       - name: Generate Homebrew Formula
         run: |
@@ -351,11 +351,11 @@ jobs:
           ruby packaging/homebrew/generate-formula.rb \
             "$GITHUB_REF_NAME" \
             dist/SHA256SUMS \
-            dist/loupe.rb
-          ruby -c dist/loupe.rb
+            dist/lupe.rb
+          ruby -c dist/lupe.rb
           (
             cd dist
-            sha256sum loupe.rb >> SHA256SUMS
+            sha256sum lupe.rb >> SHA256SUMS
             cat SHA256SUMS
           )
 
@@ -363,7 +363,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: homebrew-formula-${{ env.RELEASE_VERSION }}
-          path: dist/loupe.rb
+          path: dist/lupe.rb
           if-no-files-found: error
           overwrite: true
 
@@ -380,7 +380,7 @@ jobs:
           gh release create --repo "$GH_REPO" "$GITHUB_REF_NAME" dist/* \
             --verify-tag \
             --generate-notes \
-            --title "Loupe ${GITHUB_REF_NAME}"
+            --title "Lupe ${GITHUB_REF_NAME}"
 
   homebrew:
     name: Update Homebrew tap
@@ -423,7 +423,7 @@ jobs:
           set -euo pipefail
 
           version="${RELEASE_TAG#v}"
-          current_formula=homebrew-tap/Formula/loupe.rb
+          current_formula=homebrew-tap/Formula/lupe.rb
           current_version=""
           if [[ -f "$current_formula" ]]; then
             current_version="$(
@@ -437,15 +437,15 @@ jobs:
              [[ "$(printf '%s\n%s\n' "$current_version" "$version" |
                sort -V | tail -n 1)" == "$current_version" ]] &&
              [[ "$current_version" != "$version" ]]; then
-            echo "::notice::Tap already contains newer Loupe ${current_version}; skipping ${version}"
+            echo "::notice::Tap already contains newer Lupe ${current_version}; skipping ${version}"
             exit 0
           fi
 
           mkdir -p homebrew-tap/Formula
-          install -m 0644 formula/loupe.rb homebrew-tap/Formula/loupe.rb
+          install -m 0644 formula/lupe.rb homebrew-tap/Formula/lupe.rb
           cd homebrew-tap
 
-          git add Formula/loupe.rb
+          git add Formula/lupe.rb
           if git diff --cached --quiet; then
             echo "Homebrew Formula is already current"
             exit 0
@@ -453,5 +453,5 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "build: update loupe to ${version}"
+          git commit -m "build: update lupe to ${version}"
           git push

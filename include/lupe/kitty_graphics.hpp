@@ -1,5 +1,5 @@
-#ifndef LOUPE_KITTY_GRAPHICS_HPP_
-#define LOUPE_KITTY_GRAPHICS_HPP_
+#ifndef LUPE_KITTY_GRAPHICS_HPP_
+#define LUPE_KITTY_GRAPHICS_HPP_
 
 #include <cstdint>
 #include <filesystem>
@@ -7,9 +7,9 @@
 #include <span>
 #include <string>
 
-#include "loupe/log_message.hpp"
+#include "lupe/log_message.hpp"
 
-namespace loupe {
+namespace lupe {
 
 struct KittyImage {
   int format{100}; // PNG (100) or packed RGBA (32).
@@ -43,6 +43,6 @@ inline constexpr int kKittyImageRows = 12;
 // Its foreground RGB value must encode the image ID (1..0xFFFFFF).
 std::string kitty_placeholder(int row, int column);
 
-} // namespace loupe
+} // namespace lupe
 
-#endif // LOUPE_KITTY_GRAPHICS_HPP_
+#endif // LUPE_KITTY_GRAPHICS_HPP_

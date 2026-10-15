@@ -1,7 +1,7 @@
 #ifndef PROJECT_SCROLL_HPP_
 #define PROJECT_SCROLL_HPP_
 
-namespace loupe {
+namespace lupe {
 
 struct ScrollState {
   int top_row{0};
@@ -26,6 +26,6 @@ int
 centered_top_row(int focus_first_row, int focus_last_row, int viewport_rows);
 int max_top_row_for(int total_rows, int viewport_rows);
 
-} // namespace loupe
+} // namespace lupe
 
 #endif // PROJECT_SCROLL_HPP_

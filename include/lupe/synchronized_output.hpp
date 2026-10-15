@@ -4,7 +4,7 @@
 #include <iosfwd>
 #include <memory>
 
-namespace loupe {
+namespace lupe {
 
 class ScopedSynchronizedOutput final {
 public:
@@ -25,6 +25,6 @@ private:
   std::unique_ptr<Buffer> buffer_;
 };
 
-} // namespace loupe
+} // namespace lupe
 
 #endif // PROJECT_SYNCHRONIZED_OUTPUT_HPP_

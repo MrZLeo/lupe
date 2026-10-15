@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.25)
 # Project details
 #
 
-# Keep the parent's project scope so target helpers use Loupe's options.
+# Keep the parent's project scope so target helpers use Lupe's options.
 
 verbose_message("Adding tests under ${CMAKE_PROJECT_NAME}Tests...")
 

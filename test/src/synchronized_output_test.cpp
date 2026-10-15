@@ -1,4 +1,4 @@
-#include "loupe/synchronized_output.hpp"
+#include "lupe/synchronized_output.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -45,7 +45,7 @@ TEST_CASE("synchronized output wraps each flush", "[synchronized-output]") {
   std::ostringstream output;
 
   {
-    const loupe::ScopedSynchronizedOutput synchronized_output(output);
+    const lupe::ScopedSynchronizedOutput synchronized_output(output);
     output << "first";
     output << " frame" << std::flush;
     output << "second" << std::flush;
@@ -60,7 +60,7 @@ TEST_CASE("synchronized output ignores empty flushes",
   std::ostringstream output;
 
   {
-    const loupe::ScopedSynchronizedOutput synchronized_output(output);
+    const lupe::ScopedSynchronizedOutput synchronized_output(output);
     output << std::flush;
   }
 
@@ -73,7 +73,7 @@ TEST_CASE("synchronized output preserves embedded nulls",
   const std::string payload("before\0after", 12);
 
   {
-    const loupe::ScopedSynchronizedOutput synchronized_output(output);
+    const lupe::ScopedSynchronizedOutput synchronized_output(output);
     output.write(payload.data(), static_cast<std::streamsize>(payload.size()));
     output.flush();
   }
@@ -87,7 +87,7 @@ TEST_CASE("synchronized output keeps the flush sentinel after the frame",
   const std::string payload("frame\0", 6);
 
   {
-    const loupe::ScopedSynchronizedOutput synchronized_output(output);
+    const lupe::ScopedSynchronizedOutput synchronized_output(output);
     output.write(payload.data(), static_cast<std::streamsize>(payload.size()));
     output.flush();
   }
@@ -100,7 +100,7 @@ TEST_CASE("synchronized output forwards an empty flush sentinel",
   std::ostringstream output;
 
   {
-    const loupe::ScopedSynchronizedOutput synchronized_output(output);
+    const lupe::ScopedSynchronizedOutput synchronized_output(output);
     output.put('\0');
     output.flush();
   }
@@ -113,9 +113,9 @@ TEST_CASE("nested synchronized output produces one frame",
   std::ostringstream output;
 
   {
-    const loupe::ScopedSynchronizedOutput outer(output);
+    const lupe::ScopedSynchronizedOutput outer(output);
     {
-      const loupe::ScopedSynchronizedOutput inner(output);
+      const lupe::ScopedSynchronizedOutput inner(output);
       output << "nested" << std::flush;
     }
   }
@@ -130,7 +130,7 @@ TEST_CASE("synchronized output closes a partially written frame",
   const std::string payload("frame\0", 6);
 
   {
-    const loupe::ScopedSynchronizedOutput synchronized_output(output);
+    const lupe::ScopedSynchronizedOutput synchronized_output(output);
     output.write(payload.data(), static_cast<std::streamsize>(payload.size()));
     output.flush();
   }

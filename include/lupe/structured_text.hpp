@@ -4,7 +4,7 @@
 #include <string>
 #include <string_view>
 
-namespace loupe {
+namespace lupe {
 std::string format_structured_text(std::string_view text);
 }
 

@@ -1,5 +1,5 @@
-#include "loupe/log_format.hpp"
-#include "loupe/session_ir.hpp"
+#include "lupe/log_format.hpp"
+#include "lupe/session_ir.hpp"
 #include "session_parser_internal.hpp"
 
 #include "json_helpers.hpp"
@@ -21,7 +21,7 @@
 #include <variant>
 #include <vector>
 
-namespace loupe::detail {
+namespace lupe::detail {
 namespace {
 
 using simdjson::dom::element;
@@ -725,4 +725,4 @@ SessionParseResult parse_claudecode_transcript(std::string_view content) {
   return result;
 }
 
-} // namespace loupe::detail
+} // namespace lupe::detail

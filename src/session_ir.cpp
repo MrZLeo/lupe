@@ -1,9 +1,9 @@
-#include "loupe/session_ir.hpp"
+#include "lupe/session_ir.hpp"
 
 #include <algorithm>
 #include <string_view>
 
-namespace loupe {
+namespace lupe {
 
 std::string_view role_name(Role role) {
   switch (role) {
@@ -29,4 +29,4 @@ bool SessionParseResult::has_fatal_error() const {
   });
 }
 
-} // namespace loupe
+} // namespace lupe

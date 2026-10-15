@@ -1,8 +1,8 @@
-#include "loupe/log_format.hpp"
-#include "loupe/log_message.hpp"
-#include "loupe/message_projection.hpp"
-#include "loupe/session_ir.hpp"
-#include "loupe/session_parser.hpp"
+#include "lupe/log_format.hpp"
+#include "lupe/log_message.hpp"
+#include "lupe/message_projection.hpp"
+#include "lupe/session_ir.hpp"
+#include "lupe/session_parser.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -103,75 +103,75 @@ write_temp_log(std::string_view name, std::string_view content) {
 }
 
 bool
-has_diagnostic(const loupe::SessionParseResult &parsed,
-               loupe::DiagnosticCode code, loupe::DiagnosticSeverity severity) {
+has_diagnostic(const lupe::SessionParseResult &parsed,
+               lupe::DiagnosticCode code, lupe::DiagnosticSeverity severity) {
   return std::ranges::any_of(parsed.diagnostics,
-                             [code, severity](const loupe::Diagnostic &d) {
+                             [code, severity](const lupe::Diagnostic &d) {
                                return d.code == code && d.severity == severity;
                              });
 }
 
 bool
-displays(const loupe::SessionParseResult &parsed, std::string_view content) {
+displays(const lupe::SessionParseResult &parsed, std::string_view content) {
   const auto messages =
-      loupe::make_display_messages(parsed.session, loupe::DisplayOptions{});
-  return std::ranges::any_of(messages, [content](const loupe::LogMessage &m) {
+      lupe::make_display_messages(parsed.session, lupe::DisplayOptions{});
+  return std::ranges::any_of(messages, [content](const lupe::LogMessage &m) {
     return m.content == content;
   });
 }
 
 TEST_CASE("zstd-compressed session parses through the file entry point",
           "[zstd]") {
-  const auto path = write_temp_log("loupe-zstd-single.jsonl.zstd",
+  const auto path = write_temp_log("lupe-zstd-single.jsonl.zstd",
                                    as_string(kSingleFrameZstd));
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Auto);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Auto);
   std::filesystem::remove(path);
 
   REQUIRE_FALSE(parsed.has_fatal_error());
   // Detection runs on the decompressed JSONL.
-  REQUIRE(parsed.session.format == loupe::LogFormat::DeepseekHarness);
+  REQUIRE(parsed.session.format == lupe::LogFormat::DeepseekHarness);
   REQUIRE(parsed.session.session_id == "zstd-session");
   REQUIRE(displays(parsed, "hello from zstd"));
 }
 
 TEST_CASE("concatenated zstd frames decompress in order", "[zstd]") {
-  const auto path = write_temp_log("loupe-zstd-two-frames.jsonl.zstd",
+  const auto path = write_temp_log("lupe-zstd-two-frames.jsonl.zstd",
                                    as_string(kTwoFramesZstd));
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Auto);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Auto);
   std::filesystem::remove(path);
 
   REQUIRE_FALSE(parsed.has_fatal_error());
   REQUIRE(displays(parsed, "hello from zstd"));
   REQUIRE(displays(parsed, "hi back"));
-  REQUIRE_FALSE(has_diagnostic(parsed, loupe::DiagnosticCode::IncompleteStream,
-                               loupe::DiagnosticSeverity::Warning));
+  REQUIRE_FALSE(has_diagnostic(parsed, lupe::DiagnosticCode::IncompleteStream,
+                               lupe::DiagnosticSeverity::Warning));
 }
 
 TEST_CASE("a torn final zstd frame keeps the verified prefix", "[zstd]") {
   // Truncate halfway through the second frame, as a crashed append would.
   const std::string torn =
       as_string(kTwoFramesZstd).substr(0, kFirstFrameBytes + 90);
-  const auto path = write_temp_log("loupe-zstd-torn.jsonl.zstd", torn);
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Auto);
+  const auto path = write_temp_log("lupe-zstd-torn.jsonl.zstd", torn);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Auto);
   std::filesystem::remove(path);
 
   REQUIRE_FALSE(parsed.has_fatal_error());
   REQUIRE(displays(parsed, "hello from zstd"));
   REQUIRE_FALSE(displays(parsed, "hi back"));
-  REQUIRE(has_diagnostic(parsed, loupe::DiagnosticCode::IncompleteStream,
-                         loupe::DiagnosticSeverity::Warning));
+  REQUIRE(has_diagnostic(parsed, lupe::DiagnosticCode::IncompleteStream,
+                         lupe::DiagnosticSeverity::Warning));
 }
 
 TEST_CASE("corruption after a complete zstd frame is fatal", "[zstd]") {
   std::string corrupted = as_string(kSingleFrameZstd);
   corrupted += "GARBAGE-NOT-A-FRAME";
-  const auto path = write_temp_log("loupe-zstd-corrupt.jsonl.zstd", corrupted);
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Auto);
+  const auto path = write_temp_log("lupe-zstd-corrupt.jsonl.zstd", corrupted);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Auto);
   std::filesystem::remove(path);
 
   REQUIRE(parsed.has_fatal_error());
-  REQUIRE(has_diagnostic(parsed, loupe::DiagnosticCode::IoError,
-                         loupe::DiagnosticSeverity::Fatal));
+  REQUIRE(has_diagnostic(parsed, lupe::DiagnosticCode::IoError,
+                         lupe::DiagnosticSeverity::Fatal));
 }
 
 TEST_CASE("skippable zstd frames are consumed transparently", "[zstd]") {
@@ -181,8 +181,8 @@ TEST_CASE("skippable zstd frames are consumed transparently", "[zstd]") {
                       "abc",
                       11};
   content += as_string(kSingleFrameZstd);
-  const auto path = write_temp_log("loupe-zstd-skippable.jsonl.zstd", content);
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Auto);
+  const auto path = write_temp_log("lupe-zstd-skippable.jsonl.zstd", content);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Auto);
   std::filesystem::remove(path);
 
   REQUIRE_FALSE(parsed.has_fatal_error());
@@ -192,16 +192,16 @@ TEST_CASE("skippable zstd frames are consumed transparently", "[zstd]") {
 
 TEST_CASE("plain JSONL files bypass the zstd path", "[zstd]") {
   const auto path = write_temp_log(
-      "loupe-zstd-plain.jsonl",
+      "lupe-zstd-plain.jsonl",
       R"({"type":"session","version":3,"id":"pi-plain","cwd":"/tmp/demo","timestamp":"2026-07-27T00:00:00Z"})"
       "\n"
       R"({"type":"message","id":"m-1","parentId":null,"timestamp":"2026-07-27T00:00:01Z","message":{"role":"user","content":[{"type":"text","text":"plain text"}]}})"
       "\n");
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Auto);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Auto);
   std::filesystem::remove(path);
 
   REQUIRE_FALSE(parsed.has_fatal_error());
-  REQUIRE(parsed.session.format == loupe::LogFormat::Pi);
+  REQUIRE(parsed.session.format == lupe::LogFormat::Pi);
   REQUIRE(displays(parsed, "plain text"));
 }
 

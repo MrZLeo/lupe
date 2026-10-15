@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace loupe {
+namespace lupe {
 struct DisplayImage {
   std::string mime_type;
   std::string url;
@@ -23,6 +23,6 @@ struct LogMessage {
   std::size_t source_line{0};
   std::vector<DisplayImage> images;
 };
-} // namespace loupe
+} // namespace lupe
 
 #endif // PROJECT_LOG_MESSAGE_HPP_

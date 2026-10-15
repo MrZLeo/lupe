@@ -1,10 +1,10 @@
-#include "loupe/session_parser.hpp"
+#include "lupe/session_parser.hpp"
 
-#include "loupe/format_detector.hpp"
-#include "loupe/log_format.hpp"
-#include "loupe/log_parser.hpp"
+#include "lupe/format_detector.hpp"
+#include "lupe/log_format.hpp"
+#include "lupe/log_parser.hpp"
 
-#include "loupe/session_ir.hpp"
+#include "lupe/session_ir.hpp"
 #include "session_parser_internal.hpp"
 #include "zstd_decode.hpp"
 
@@ -20,7 +20,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace loupe {
+namespace lupe {
 namespace detail {
 
 void add_diagnostic(SessionParseResult &result, DiagnosticSeverity severity,
@@ -286,4 +286,4 @@ parse_session_file(const std::filesystem::path &path, LogFormat format) {
   return result;
 }
 
-} // namespace loupe
+} // namespace lupe

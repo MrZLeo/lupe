@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace loupe::detail {
+namespace lupe::detail {
 namespace {
 
 constexpr std::size_t kMaxHistoryDepth = 64;
@@ -358,4 +358,4 @@ SessionParseResult parse_codex_rollout_file(const std::filesystem::path &path,
   return result;
 }
 
-} // namespace loupe::detail
+} // namespace lupe::detail

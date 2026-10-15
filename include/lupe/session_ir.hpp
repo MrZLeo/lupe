@@ -1,5 +1,5 @@
-#ifndef LOUPE_SESSION_IR_HPP_
-#define LOUPE_SESSION_IR_HPP_
+#ifndef LUPE_SESSION_IR_HPP_
+#define LUPE_SESSION_IR_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -12,9 +12,9 @@
 #include <variant>
 #include <vector>
 
-#include "loupe/log_format.hpp"
+#include "lupe/log_format.hpp"
 
-namespace loupe {
+namespace lupe {
 
 enum class Role {
   User,
@@ -235,6 +235,6 @@ append_event(RecordIR &record, Event event, const std::string &timestamp = {}) {
   });
 }
 
-} // namespace loupe
+} // namespace lupe
 
-#endif // LOUPE_SESSION_IR_HPP_
+#endif // LUPE_SESSION_IR_HPP_

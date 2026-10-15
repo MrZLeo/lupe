@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.25)
 #
 
 project(
-  "Loupe"
+  "Lupe"
   VERSION 0.6.0
   LANGUAGES CXX
 )
@@ -119,7 +119,7 @@ set_target_properties(
   RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/$<CONFIG>"
 )
 if(${PROJECT_NAME}_BUILD_EXECUTABLE)
-  set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME loupe)
+  set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME lupe)
 endif()
 if(${PROJECT_NAME}_BUILD_EXECUTABLE AND ${PROJECT_NAME}_ENABLE_UNIT_TESTING)
   set_target_properties(

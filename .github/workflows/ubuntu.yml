@@ -32,7 +32,7 @@ jobs:
         sudo apt-get install --yes ninja-build
 
     - name: configure
-      run: cmake -Bbuild -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/$INSTALL_LOCATION -DCPM_SOURCE_CACHE=$CPM_SOURCE_CACHE -DLoupe_ENABLE_CODE_COVERAGE=1
+      run: cmake -Bbuild -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/$INSTALL_LOCATION -DCPM_SOURCE_CACHE=$CPM_SOURCE_CACHE -DLupe_ENABLE_CODE_COVERAGE=1
       
     - name: build
       run: cmake --build build

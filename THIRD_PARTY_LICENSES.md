@@ -1,9 +1,9 @@
 # Third-Party Licenses
 
-Loupe statically links the third-party libraries listed below. They remain
+Lupe statically links the third-party libraries listed below. They remain
 under their own licenses, which permit redistribution and require the
 following copyright notices and license texts to accompany binary
-distributions. Loupe itself is distributed under the terms in
+distributions. Lupe itself is distributed under the terms in
 [LICENSE](LICENSE).
 
 ## FTXUI
@@ -39,7 +39,7 @@ THE SOFTWARE.
 <https://github.com/simdjson/simdjson>
 
 simdjson is dual-licensed under the Apache License 2.0 and the MIT License;
-Loupe distributes it under the terms of the MIT License.
+Lupe distributes it under the terms of the MIT License.
 
 ```text
 Copyright 2018-2025 The simdjson authors
@@ -104,7 +104,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <https://github.com/nothings/stb>
 
 stb_image is dual-licensed under the MIT License and the Unlicense;
-Loupe distributes it under the terms of the MIT License.
+Lupe distributes it under the terms of the MIT License.
 
 ```text
 Copyright (c) 2017 Sean Barrett
@@ -133,7 +133,7 @@ SOFTWARE.
 <https://github.com/facebook/zstd>
 
 Zstandard is dual-licensed under the BSD 3-Clause License and the GNU
-General Public License v2.0; Loupe distributes it under the terms of the
+General Public License v2.0; Lupe distributes it under the terms of the
 BSD 3-Clause License.
 
 ```text

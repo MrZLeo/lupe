@@ -1,5 +1,5 @@
 {
-  description = "Loupe C++23 development environment";
+  description = "Lupe C++23 development environment";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 

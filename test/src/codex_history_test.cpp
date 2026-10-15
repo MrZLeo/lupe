@@ -1,5 +1,5 @@
-#include "loupe/message_projection.hpp"
-#include "loupe/session_parser.hpp"
+#include "lupe/message_projection.hpp"
+#include "lupe/session_parser.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -24,7 +24,7 @@ struct TempHistory {
   TempHistory() {
     static std::atomic<unsigned> next{0};
     root = std::filesystem::temp_directory_path()
-         / ("loupe-codex-history-"
+         / ("lupe-codex-history-"
             + std::to_string(
                 std::chrono::steady_clock::now().time_since_epoch().count())
             + "-"
@@ -86,17 +86,17 @@ std::string message(std::uint64_t ordinal, std::string_view text) {
        + "\n";
 }
 
-std::vector<std::string> texts(const loupe::SessionParseResult &parsed) {
+std::vector<std::string> texts(const lupe::SessionParseResult &parsed) {
   std::vector<std::string> values;
-  for (const auto &display : loupe::make_display_messages(parsed.session)) {
+  for (const auto &display : lupe::make_display_messages(parsed.session)) {
     values.push_back(display.content);
   }
   return values;
 }
 
-bool incomplete(const loupe::SessionParseResult &parsed) {
+bool incomplete(const lupe::SessionParseResult &parsed) {
   return std::ranges::any_of(parsed.diagnostics, [](const auto &diagnostic) {
-    return diagnostic.code == loupe::DiagnosticCode::IncompleteStream;
+    return diagnostic.code == lupe::DiagnosticCode::IncompleteStream;
   });
 }
 
@@ -121,7 +121,7 @@ TEST_CASE(
   const auto path =
       fixture.write("sessions/2026/10/15/rollout-2026-leaf.jsonl", leaf);
 
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Auto);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Auto);
   REQUIRE_FALSE(parsed.has_fatal_error());
   REQUIRE(parsed.diagnostics.empty());
   REQUIRE(parsed.session.session_id == "logical-leaf");
@@ -156,13 +156,13 @@ TEST_CASE("Codex inherited prefixes carry model and tool context into the leaf",
         "\n"
       + message(5, "done");
   const auto path = fixture.write("rollout-child.jsonl", leaf);
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Auto);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Auto);
   REQUIRE(parsed.diagnostics.empty());
   REQUIRE(parsed.session.session_id == "child");
-  const auto &output = std::get<loupe::ToolResultEvent>(
+  const auto &output = std::get<lupe::ToolResultEvent>(
       parsed.session.records.at(4).events.front().payload);
   CHECK(output.name == "read");
-  const auto &answer = std::get<loupe::MessageEvent>(
+  const auto &answer = std::get<lupe::MessageEvent>(
       parsed.session.records.at(5).events.front().payload);
   CHECK(answer.model == "gpt-5");
 }
@@ -177,7 +177,7 @@ TEST_CASE("Codex history resolves rollout IDs rather than logical thread IDs",
       + message(3, "after revert");
   const auto path =
       fixture.write("rollout-2026-stable-thread_new-physical-id.jsonl", child);
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Codex);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Codex);
   REQUIRE(parsed.diagnostics.empty());
   REQUIRE(parsed.session.session_id == "stable-thread");
   REQUIRE(texts(parsed)
@@ -216,16 +216,16 @@ TEST_CASE("Codex reads compressed history and prefers a plain sibling",
       fixture.write("rollout-child.jsonl",
                     meta("child", 2, reference("parent", 2, parent.size()))
                         + message(3, "local"));
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Auto);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Auto);
   REQUIRE(parsed.diagnostics.empty());
   REQUIRE(texts(parsed) == std::vector<std::string>{"parent", "local"});
 }
 
 TEST_CASE("content-only Codex parsing reports unresolved inherited history",
           "[codex_history]") {
-  const auto parsed = loupe::parse_session_content(
+  const auto parsed = lupe::parse_session_content(
       meta("child", 2, reference("parent", 2, 123)) + message(3, "local"),
-      loupe::LogFormat::Auto);
+      lupe::LogFormat::Auto);
   REQUIRE_FALSE(parsed.has_fatal_error());
   REQUIRE(incomplete(parsed));
   REQUIRE(texts(parsed) == std::vector<std::string>{"local"});
@@ -237,7 +237,7 @@ TEST_CASE("Codex missing history preserves the requested file with a warning",
   const auto child =
       meta("child", 2, reference("missing", 2, 123)) + message(3, "local");
   const auto path = fixture.write("rollout-child.jsonl", child);
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Auto);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Auto);
   REQUIRE_FALSE(parsed.has_fatal_error());
   REQUIRE(incomplete(parsed));
   REQUIRE(parsed.session.session_id == "child");
@@ -259,7 +259,7 @@ TEST_CASE("Codex rejects invalid byte and ordinal history boundaries",
   const auto path = fixture.write(
       "rollout-child.jsonl", meta("child", end, reference("parent", end, bytes))
                                  + message(end + 1, "local"));
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Codex);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Codex);
   REQUIRE_FALSE(parsed.has_fatal_error());
   REQUIRE(incomplete(parsed));
   REQUIRE(texts(parsed) == std::vector<std::string>{"local"});
@@ -289,7 +289,7 @@ TEST_CASE("Codex refuses cycles ambiguous references and unsafe IDs",
   const auto path = fixture.write(
       "rollout-child.jsonl",
       meta("child", 2, reference(id, 2, parent.size())) + message(3, "local"));
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Codex);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Codex);
   REQUIRE_FALSE(parsed.has_fatal_error());
   REQUIRE(incomplete(parsed));
   REQUIRE(texts(parsed) == std::vector<std::string>{"local"});
@@ -321,7 +321,7 @@ TEST_CASE("Codex ignores data beyond the inherited cutoff but rejects broken "
       fixture.write("rollout-child.jsonl",
                     meta("child", end, reference("parent", end, parent.size()))
                         + message(end + 1, "local"));
-  const auto parsed = loupe::parse_session_file(path, loupe::LogFormat::Codex);
+  const auto parsed = lupe::parse_session_file(path, lupe::LogFormat::Codex);
   REQUIRE_FALSE(parsed.has_fatal_error());
   if (broken) {
     REQUIRE(incomplete(parsed));

@@ -50,21 +50,21 @@ jobs:
           ruby packaging/homebrew/generate-formula.rb \
             v0.3.0 \
             packaging/homebrew/testdata/v0.3.0-SHA256SUMS \
-            "$RUNNER_TEMP/loupe.rb"
+            "$RUNNER_TEMP/lupe.rb"
 
       - name: Create test tap
         run: |
-          brew tap-new --no-git mrzleo/loupe-test
+          brew tap-new --no-git mrzleo/lupe-test
           install -m 0644 \
-            "$RUNNER_TEMP/loupe.rb" \
-            "$(brew --repository mrzleo/loupe-test)/Formula/loupe.rb"
+            "$RUNNER_TEMP/lupe.rb" \
+            "$(brew --repository mrzleo/lupe-test)/Formula/lupe.rb"
 
       - name: Check Formula
         run: |
-          brew style --formula mrzleo/loupe-test/loupe
-          brew audit --strict --formula mrzleo/loupe-test/loupe
+          brew style --formula mrzleo/lupe-test/lupe
+          brew audit --strict --formula mrzleo/lupe-test/lupe
 
       - name: Install and test Formula
         run: |
-          brew install mrzleo/loupe-test/loupe
-          brew test mrzleo/loupe-test/loupe
+          brew install mrzleo/lupe-test/lupe
+          brew test mrzleo/lupe-test/lupe

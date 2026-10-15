@@ -1,4 +1,4 @@
-#include "loupe/log_parser.hpp"
+#include "lupe/log_parser.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -23,7 +23,7 @@ std::filesystem::path find_none_json_fixture() {
 } // namespace
 
 TEST_CASE("parse JSONL chat messages", "[log_parser]") {
-  const auto parsed = loupe::parse_log_content(
+  const auto parsed = lupe::parse_log_content(
       R"({"role":"system","content":"You are concise."}
 {"role":"user","content":"hello"}
 {"role":"assistant","content":"hi there"})");
@@ -38,7 +38,7 @@ TEST_CASE("parse JSONL chat messages", "[log_parser]") {
 }
 
 TEST_CASE("parse Claude-style nested content arrays", "[log_parser]") {
-  const auto parsed = loupe::parse_log_content(
+  const auto parsed = lupe::parse_log_content(
       R"({"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"first"},{"type":"text","text":"second"}]},"timestamp":"2026-06-16T12:00:00Z"})");
 
   REQUIRE(parsed.errors.empty());
@@ -49,7 +49,7 @@ TEST_CASE("parse Claude-style nested content arrays", "[log_parser]") {
 }
 
 TEST_CASE("parse JSON documents with a messages container", "[log_parser]") {
-  const auto parsed = loupe::parse_log_content(
+  const auto parsed = lupe::parse_log_content(
       R"({"messages":[{"role":"user","content":"question"},{"role":"assistant","content":"answer"}]})");
 
   REQUIRE(parsed.errors.empty());
@@ -59,7 +59,7 @@ TEST_CASE("parse JSON documents with a messages container", "[log_parser]") {
 }
 
 TEST_CASE("parse agent log tool calls", "[log_parser]") {
-  const auto parsed = loupe::parse_log_content(
+  const auto parsed = lupe::parse_log_content(
       R"({"messages":[{"role":"assistant","content":[{"type":"text","content":"Looking it up."}],"tool_calls":[{"function":"get_all_hotels_in_city","args":{"city":"Boston"},"id":"call_0"}]},{"role":"tool","content":[{"type":"text","content":"Hotel Names:\nRiverside View Hotel"}],"tool_call_id":"call_0","tool_call":{"function":"get_all_hotels_in_city","args":{"city":"Boston"},"id":"call_0"},"error":null}]})");
 
   REQUIRE(parsed.errors.empty());
@@ -77,7 +77,7 @@ TEST_CASE("parse agent log tool calls", "[log_parser]") {
 }
 
 TEST_CASE("tool call argument objects keep all fields", "[log_parser]") {
-  const auto parsed = loupe::parse_log_content(
+  const auto parsed = lupe::parse_log_content(
       R"({"role":"assistant","content":"","tool_calls":[{"function":"send","args":{"content":"hi","recipient":"a"},"id":"call_1"}]})");
 
   REQUIRE(parsed.errors.empty());
@@ -89,7 +89,7 @@ TEST_CASE("tool call argument objects keep all fields", "[log_parser]") {
 }
 
 TEST_CASE("long tool call arguments are formatted", "[log_parser]") {
-  const auto parsed = loupe::parse_log_content(
+  const auto parsed = lupe::parse_log_content(
       R"({"role":"assistant","content":"","tool_calls":[{"function":"send_email","args":{"recipients":["mark.black-2134@gmail.com"],"subject":"All unread emails from inbox","windows_path":"C:\\newfolder\\reports","regex":"\\n","body":"Here are all the unread emails from my inbox:\n1. From: support@techservices.com\nSubject: TechServices Password Reset Request\nBody: Dear Emma, reset your password."},"id":"call_long"}]})");
 
   REQUIRE(parsed.errors.empty());
@@ -112,7 +112,7 @@ TEST_CASE("long tool call arguments are formatted", "[log_parser]") {
 }
 
 TEST_CASE("explicit empty tool-call content stays empty", "[log_parser]") {
-  const auto parsed = loupe::parse_log_content(
+  const auto parsed = lupe::parse_log_content(
       R"({"role":"assistant","content":null,"tool_calls":[{"function":"lookup","args":{"query":"x"},"id":"call_2"}]})");
 
   REQUIRE(parsed.errors.empty());
@@ -130,7 +130,7 @@ TEST_CASE("parse none.json fixture when present", "[log_parser]") {
     SKIP("none.json fixture is not present");
   }
 
-  const auto parsed = loupe::parse_log_file(fixture);
+  const auto parsed = lupe::parse_log_file(fixture);
 
   REQUIRE(parsed.errors.empty());
   REQUIRE(parsed.messages.size() == 26);

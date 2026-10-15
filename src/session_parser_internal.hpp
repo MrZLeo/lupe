@@ -1,12 +1,12 @@
-#ifndef LOUPE_SESSION_PARSER_INTERNAL_HPP_
-#define LOUPE_SESSION_PARSER_INTERNAL_HPP_
+#ifndef LUPE_SESSION_PARSER_INTERNAL_HPP_
+#define LUPE_SESSION_PARSER_INTERNAL_HPP_
 
 #include <span>
 #include <string_view>
 
-#include "loupe/session_ir.hpp"
+#include "lupe/session_ir.hpp"
 
-namespace loupe::detail {
+namespace lupe::detail {
 
 SessionParseResult parse_pi_session(std::string_view content);
 struct CodexRolloutSource {
@@ -31,6 +31,6 @@ void add_diagnostic(SessionParseResult &result, DiagnosticSeverity severity,
 RecordIR make_invalid_record(std::size_t sequence, std::size_t source_line,
                              std::string_view raw);
 
-} // namespace loupe::detail
+} // namespace lupe::detail
 
-#endif // LOUPE_SESSION_PARSER_INTERNAL_HPP_
+#endif // LUPE_SESSION_PARSER_INTERNAL_HPP_

@@ -9,7 +9,7 @@
 #include <optional>
 #include <vector>
 
-#include "loupe/log_message.hpp"
+#include "lupe/log_message.hpp"
 
 namespace {
 
@@ -29,24 +29,24 @@ TEST_CASE("message overview maps its full height onto the transcript",
           "[message_overview]") {
   const ftxui::Box box{2, 8, 4, 12};
 
-  REQUIRE(loupe::message_overview_index_at(box, 21, 2, 4) == 0);
-  REQUIRE(loupe::message_overview_index_at(box, 21, 5, 8) == 10);
-  REQUIRE(loupe::message_overview_index_at(box, 21, 8, 12) == 20);
-  REQUIRE_FALSE(loupe::message_overview_index_at(box, 21, 1, 8).has_value());
-  REQUIRE_FALSE(loupe::message_overview_index_at(box, 0, 5, 8).has_value());
+  REQUIRE(lupe::message_overview_index_at(box, 21, 2, 4) == 0);
+  REQUIRE(lupe::message_overview_index_at(box, 21, 5, 8) == 10);
+  REQUIRE(lupe::message_overview_index_at(box, 21, 8, 12) == 20);
+  REQUIRE_FALSE(lupe::message_overview_index_at(box, 21, 1, 8).has_value());
+  REQUIRE_FALSE(lupe::message_overview_index_at(box, 0, 5, 8).has_value());
 }
 
 TEST_CASE("message overview packs entries contiguously and centers them",
           "[message_overview]") {
-  const std::vector<loupe::LogMessage> messages{
-      loupe::LogMessage{.role = "user"},
-      loupe::LogMessage{.role = "assistant"},
-      loupe::LogMessage{.role = "tool"},
+  const std::vector<lupe::LogMessage> messages{
+      lupe::LogMessage{.role = "user"},
+      lupe::LogMessage{.role = "assistant"},
+      lupe::LogMessage{.role = "tool"},
   };
   ftxui::Box reflected;
-  auto overview = loupe::message_overview(messages, 1, std::nullopt, reflected);
+  auto overview = lupe::message_overview(messages, 1, std::nullopt, reflected);
   auto screen = ftxui::Screen::Create(
-      ftxui::Dimension::Fixed(loupe::kMessageOverviewWidth),
+      ftxui::Dimension::Fixed(lupe::kMessageOverviewWidth),
       ftxui::Dimension::Fixed(7));
 
   ftxui::Render(screen, overview);
@@ -70,18 +70,18 @@ TEST_CASE("message overview packs entries contiguously and centers them",
 
 TEST_CASE("message overview stretches left toward the mouse focus",
           "[message_overview]") {
-  const std::vector<loupe::LogMessage> messages{
-      loupe::LogMessage{.role = "user"},
-      loupe::LogMessage{.role = "assistant"},
-      loupe::LogMessage{.role = "system"},
-      loupe::LogMessage{.role = "tool"},
-      loupe::LogMessage{.role = "unknown"},
-      loupe::LogMessage{.role = "user"},
+  const std::vector<lupe::LogMessage> messages{
+      lupe::LogMessage{.role = "user"},
+      lupe::LogMessage{.role = "assistant"},
+      lupe::LogMessage{.role = "system"},
+      lupe::LogMessage{.role = "tool"},
+      lupe::LogMessage{.role = "unknown"},
+      lupe::LogMessage{.role = "user"},
   };
   ftxui::Box reflected;
-  auto overview = loupe::message_overview(messages, 5, 2, reflected);
+  auto overview = lupe::message_overview(messages, 5, 2, reflected);
   auto screen = ftxui::Screen::Create(
-      ftxui::Dimension::Fixed(loupe::kMessageOverviewWidth),
+      ftxui::Dimension::Fixed(lupe::kMessageOverviewWidth),
       ftxui::Dimension::Fixed(9));
 
   ftxui::Render(screen, overview);

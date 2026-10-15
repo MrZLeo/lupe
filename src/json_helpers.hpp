@@ -1,5 +1,5 @@
-#ifndef LOUPE_JSON_HELPERS_HPP_
-#define LOUPE_JSON_HELPERS_HPP_
+#ifndef LUPE_JSON_HELPERS_HPP_
+#define LUPE_JSON_HELPERS_HPP_
 
 #include <simdjson.h>
 
@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace loupe::detail {
+namespace lupe::detail {
 
 inline bool element_at(simdjson::dom::element value, std::string_view pointer,
                        simdjson::dom::element &field) {
@@ -113,6 +113,6 @@ scalar_text_at(simdjson::dom::element value, std::string_view pointer) {
   }
 }
 
-} // namespace loupe::detail
+} // namespace lupe::detail
 
-#endif // LOUPE_JSON_HELPERS_HPP_
+#endif // LUPE_JSON_HELPERS_HPP_

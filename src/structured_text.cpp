@@ -1,11 +1,11 @@
-#include "loupe/structured_text.hpp"
+#include "lupe/structured_text.hpp"
 
 #include <cctype>
 #include <cstddef>
 #include <string>
 #include <string_view>
 
-namespace loupe {
+namespace lupe {
 namespace {
 std::string trim_copy(std::string_view text) {
   auto is_space = [](unsigned char value) { return std::isspace(value) != 0; };
@@ -232,4 +232,4 @@ std::string format_structured_text(std::string_view text) {
 
   return out;
 }
-} // namespace loupe
+} // namespace lupe

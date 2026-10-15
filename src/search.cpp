@@ -1,5 +1,5 @@
-#include "loupe/search.hpp"
-#include "loupe/log_message.hpp"
+#include "lupe/search.hpp"
+#include "lupe/log_message.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-namespace loupe {
+namespace lupe {
 namespace {
 char ascii_lower(char value) {
   return static_cast<char>(std::tolower(static_cast<unsigned char>(value)));
@@ -116,4 +116,4 @@ match_ordinal(const std::vector<std::size_t> &matches, std::size_t selected) {
   return static_cast<std::size_t>(std::distance(matches.begin(), iterator));
 }
 
-} // namespace loupe
+} // namespace lupe

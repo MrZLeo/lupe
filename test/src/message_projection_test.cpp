@@ -1,8 +1,8 @@
-#include "loupe/log_format.hpp"
-#include "loupe/log_message.hpp"
-#include "loupe/message_projection.hpp"
-#include "loupe/session_ir.hpp"
-#include "loupe/session_parser.hpp"
+#include "lupe/log_format.hpp"
+#include "lupe/log_message.hpp"
+#include "lupe/message_projection.hpp"
+#include "lupe/session_ir.hpp"
+#include "lupe/session_parser.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -27,10 +27,10 @@ constexpr std::string_view kTodoStream = R"jsonl(
 TEST_CASE("Codex Exec todo lists project to checklist messages",
           "[message_projection]") {
   const auto parsed =
-      loupe::parse_session_content(kTodoStream, loupe::LogFormat::CodexExec);
-  const auto messages = loupe::make_display_messages(parsed.session);
+      lupe::parse_session_content(kTodoStream, lupe::LogFormat::CodexExec);
+  const auto messages = lupe::make_display_messages(parsed.session);
 
-  std::vector<const loupe::LogMessage *> todos;
+  std::vector<const lupe::LogMessage *> todos;
   for (const auto &message : messages) {
     if (message.raw_type == "todo_list") {
       todos.push_back(&message);
@@ -49,20 +49,20 @@ TEST_CASE("Codex Exec todo lists project to checklist messages",
 
 TEST_CASE("Todo list projection keeps unparseable payloads verbatim",
           "[message_projection]") {
-  loupe::SessionIR session;
-  loupe::RecordIR record;
+  lupe::SessionIR session;
+  lupe::RecordIR record;
   record.native_type = "item.updated";
   record.source_line = 7;
-  record.events.push_back(loupe::EventIR{
+  record.events.push_back(lupe::EventIR{
       .payload =
-          loupe::MetadataEvent{
+          lupe::MetadataEvent{
               .name = "codex_exec.todo_list",
               .value = "not json",
           },
   });
   session.records.push_back(std::move(record));
 
-  const auto messages = loupe::make_display_messages(session);
+  const auto messages = lupe::make_display_messages(session);
   REQUIRE(messages.size() == 1);
   REQUIRE(messages.front().raw_type == "todo_list");
   REQUIRE(messages.front().content == "not json");
@@ -70,37 +70,37 @@ TEST_CASE("Todo list projection keeps unparseable payloads verbatim",
 
 TEST_CASE("Other metadata still follows the show_metadata option",
           "[message_projection]") {
-  loupe::SessionIR session;
-  loupe::RecordIR record;
+  lupe::SessionIR session;
+  lupe::RecordIR record;
   record.native_type = "item.completed";
-  record.events.push_back(loupe::EventIR{
+  record.events.push_back(lupe::EventIR{
       .payload =
-          loupe::MetadataEvent{
+          lupe::MetadataEvent{
               .name = "custom",
               .value = "hidden value",
           },
   });
   session.records.push_back(std::move(record));
 
-  REQUIRE(loupe::make_display_messages(session).empty());
+  REQUIRE(lupe::make_display_messages(session).empty());
 
-  loupe::DisplayOptions options;
+  lupe::DisplayOptions options;
   options.show_metadata = true;
-  const auto messages = loupe::make_display_messages(session, options);
+  const auto messages = lupe::make_display_messages(session, options);
   REQUIRE(messages.size() == 1);
   REQUIRE(messages.front().content == "hidden value");
 }
 
 TEST_CASE("Image references survive display projection",
           "[message_projection]") {
-  loupe::SessionIR session;
-  loupe::RecordIR record;
+  lupe::SessionIR session;
+  lupe::RecordIR record;
   record.native_type = "response_item";
-  record.events.push_back(loupe::EventIR{
+  record.events.push_back(lupe::EventIR{
       .payload =
-          loupe::MessageEvent{
-              .role = loupe::Role::User,
-              .content = {loupe::ImageContent{
+          lupe::MessageEvent{
+              .role = lupe::Role::User,
+              .content = {lupe::ImageContent{
                   .mime_type = "image/png",
                   .url = "https://example.com/image.png",
               }},
@@ -108,7 +108,7 @@ TEST_CASE("Image references survive display projection",
   });
   session.records.push_back(std::move(record));
 
-  const auto messages = loupe::make_display_messages(session);
+  const auto messages = lupe::make_display_messages(session);
   REQUIRE(messages.size() == 1);
   REQUIRE(messages.front().images.size() == 1);
   CHECK(messages.front().images.front().mime_type == "image/png");

@@ -1,5 +1,5 @@
 #include "message_overview.hpp"
-#include "loupe/log_message.hpp"
+#include "lupe/log_message.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -15,7 +15,7 @@
 #include <ftxui/screen/cell.hpp>
 #include <ftxui/screen/screen.hpp>
 
-namespace loupe {
+namespace lupe {
 namespace {
 
 std::size_t index_for_row(std::size_t message_count, int height, int row) {
@@ -202,4 +202,4 @@ message_overview(const std::vector<LogMessage> &messages, std::size_t selected,
                                            reflected_box);
 }
 
-} // namespace loupe
+} // namespace lupe

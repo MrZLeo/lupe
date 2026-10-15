@@ -1,10 +1,10 @@
-#ifndef LOUPE_LOG_FORMAT_HPP_
-#define LOUPE_LOG_FORMAT_HPP_
+#ifndef LUPE_LOG_FORMAT_HPP_
+#define LUPE_LOG_FORMAT_HPP_
 
 #include <optional>
 #include <string_view>
 
-namespace loupe {
+namespace lupe {
 
 enum class LogFormat {
   Pi,
@@ -20,6 +20,6 @@ enum class LogFormat {
 std::optional<LogFormat> parse_log_format(std::string_view value);
 std::string_view log_format_name(LogFormat format);
 
-} // namespace loupe
+} // namespace lupe
 
-#endif // LOUPE_LOG_FORMAT_HPP_
+#endif // LUPE_LOG_FORMAT_HPP_

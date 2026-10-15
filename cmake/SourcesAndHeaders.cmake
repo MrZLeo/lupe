@@ -35,19 +35,19 @@ set(exe_sources
 )
 
 set(headers
-  include/loupe/format_detector.hpp
-  include/loupe/kitty_graphics.hpp
-  include/loupe/log_format.hpp
-  include/loupe/log_message.hpp
-  include/loupe/log_parser.hpp
-  include/loupe/markdown_text.hpp
-  include/loupe/message_projection.hpp
-  include/loupe/scroll.hpp
-  include/loupe/search.hpp
-  include/loupe/session_ir.hpp
-  include/loupe/session_parser.hpp
-  include/loupe/structured_text.hpp
-  include/loupe/synchronized_output.hpp
+  include/lupe/format_detector.hpp
+  include/lupe/kitty_graphics.hpp
+  include/lupe/log_format.hpp
+  include/lupe/log_message.hpp
+  include/lupe/log_parser.hpp
+  include/lupe/markdown_text.hpp
+  include/lupe/message_projection.hpp
+  include/lupe/scroll.hpp
+  include/lupe/search.hpp
+  include/lupe/session_ir.hpp
+  include/lupe/session_parser.hpp
+  include/lupe/structured_text.hpp
+  include/lupe/synchronized_output.hpp
 )
 
 set(test_sources
