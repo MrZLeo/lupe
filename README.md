@@ -50,6 +50,26 @@ loupe ~/.dsh/sessions/.../session.jsonl.zstd
 session rollout, while the latter reads the machine-readable stdout event
 stream produced by `codex exec --json`.
 
+Codex rollout support includes legacy records and the paginated history mode
+(default for new local threads since Codex CLI 0.158.0). Loupe reads structured
+`event_msg` / `item_completed` messages, reasoning, plans, tool calls/results,
+and compaction alongside raw `response_item` records. Matching representations
+are deduplicated within a turn without discarding their raw JSON; raw tool
+outputs are retained rather than replaced by truncated completion snapshots.
+Unknown item types remain available through the unknown-record display option.
+
+When a rollout contains `session_meta.history_base`, opening the file resolves
+its inherited prefixes from the same Codex home's `sessions` and
+`archived_sessions` trees. Exported files outside those trees resolve sibling
+rollouts only, so keep the original rollout filenames when copying a history
+chain. Reverted-thread filenames and `.jsonl.zst` sources are supported; byte
+and ordinal cutoffs are checked before merging. Missing, ambiguous, cyclic,
+or malformed references produce a warning and show only the requested file.
+Reference loading does not follow nested symlinks and is bounded to 64 inherited
+files and 512 MiB of combined JSONL. No SQLite database is required or modified.
+`parse_session_content` has no filesystem context and instead warns when a
+history reference cannot be resolved; use `parse_session_file` for full history.
+
 DeepSeek Harness stores one append-only event stream per session under
 `~/.dsh/sessions`, by default Zstandard-compressed as `session.jsonl.zstd`.
 Loupe decompresses zstd input transparently (detected by magic bytes, so
@@ -94,7 +114,8 @@ native JSONL
 `SessionIR` keeps provider-independent events for messages, reasoning, tool
 calls and results, compaction, token usage, metadata, and unknown extensions.
 Every native record also retains its source line, native type and IDs, event
-order, and raw JSON. Unknown records are preserved instead of being silently
+order, and raw JSON. Codex file parsing additionally records each physical
+`RecordIR.source_path`, keeping line numbers meaningful across inherited files. Unknown records are preserved instead of being silently
 discarded.
 
 The IR has three levels:

@@ -1,6 +1,7 @@
 set(sources
   src/claudecode_parser.cpp
   src/codex_exec_parser.cpp
+  src/codex_history.cpp
   src/codex_parser.cpp
   src/deepseek_harness_parser.cpp
   src/format_detector.cpp
@@ -51,6 +52,7 @@ set(headers
 
 set(test_sources
   src/codex_exec_parser_test.cpp
+  src/codex_history_test.cpp
   src/codex_parser_test.cpp
   src/deepseek_harness_parser_test.cpp
   src/format_detector_test.cpp

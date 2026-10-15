@@ -165,6 +165,11 @@ struct RecordIR {
   std::string timestamp;
   std::string raw_json;
   std::vector<EventIR> events;
+  // Physical origin when a transcript spans multiple rollout files. Empty for
+  // content-only parsing; source_line remains relative to this physical file.
+  // Explicit default keeps existing aggregate initializers warning-free.
+  // NOLINTNEXTLINE(readability-redundant-member-init)
+  std::filesystem::path source_path{};
 };
 
 struct SessionIR {

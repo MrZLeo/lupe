@@ -1,4 +1,5 @@
 #include "loupe/log_format.hpp"
+#include "loupe/message_projection.hpp"
 #include "loupe/session_ir.hpp"
 #include "loupe/session_parser.hpp"
 
@@ -7,6 +8,268 @@
 #include <cstddef>
 #include <string>
 #include <variant>
+#include <vector>
+
+namespace {
+
+template <typename Event>
+std::vector<const Event *> events(const loupe::SessionParseResult &parsed) {
+  std::vector<const Event *> found;
+  for (const auto &record : parsed.session.records) {
+    for (const auto &event : record.events) {
+      if (const auto *value = std::get_if<Event>(&event.payload)) {
+        found.push_back(value);
+      }
+    }
+  }
+  return found;
+}
+
+} // namespace
+
+TEST_CASE("parse paginated Codex completed messages reasoning and plans",
+          "[codex_parser][paginated]") {
+  // Wire shapes follow openai/codex rust-v0.162.1 protocol/src/items.rs.
+  const auto parsed = loupe::parse_session_content(
+      R"({"ordinal":0,"type":"session_meta","payload":{"id":"thread","history_mode":"paginated","model_provider":"openai"}})"
+      "\n"
+      R"({"ordinal":1,"type":"event_msg","payload":{"type":"task_started","turn_id":"turn-1"}})"
+      "\n"
+      R"({"ordinal":2,"type":"turn_context","payload":{"turn_id":"turn-1","model":"gpt-5"}})"
+      "\n"
+      R"({"ordinal":3,"type":"event_msg","payload":{"type":"item_completed","thread_id":"thread","turn_id":"turn-1","item":{"type":"UserMessage","id":"u1","content":[{"type":"text","text":"question","text_elements":[]},{"type":"image","image_url":"data:image/png;base64,eA=="},{"type":"local_image","path":"/tmp/image.png"}]}}})"
+      "\n"
+      R"({"ordinal":4,"type":"event_msg","payload":{"type":"item_completed","turn_id":"turn-1","item":{"type":"Reasoning","id":"r1","summary_text":["first","second"],"raw_content":["details"]}}})"
+      "\n"
+      R"({"ordinal":5,"type":"event_msg","payload":{"type":"item_completed","turn_id":"turn-1","item":{"type":"Plan","id":"p1","text":"the plan"}}})"
+      "\n"
+      R"({"ordinal":6,"type":"event_msg","payload":{"type":"item_completed","turn_id":"turn-1","item":{"type":"AgentMessage","id":"a1","phase":"final_answer","content":[{"type":"Text","text":"answer"}]}}})",
+      loupe::LogFormat::Auto);
+  REQUIRE_FALSE(parsed.has_fatal_error());
+  REQUIRE(parsed.diagnostics.empty());
+  const auto messages = events<loupe::MessageEvent>(parsed);
+  REQUIRE(messages.size() == 3);
+  REQUIRE(messages[0]->role == loupe::Role::User);
+  REQUIRE(messages[0]->provider == "openai");
+  REQUIRE(messages[0]->model == "gpt-5");
+  REQUIRE(messages[0]->content.size() == 3);
+  const auto &image = std::get<loupe::ImageContent>(messages[0]->content[1]);
+  REQUIRE(image.base64_data);
+  REQUIRE(*image.base64_data == "eA==");
+  REQUIRE(std::get<loupe::ImageContent>(messages[0]->content[2]).url
+          == "/tmp/image.png");
+  REQUIRE(messages[1]->phase == "plan");
+  REQUIRE(messages[2]->role == loupe::Role::Assistant);
+  REQUIRE(messages[2]->phase == "final_answer");
+  const auto reasoning = events<loupe::ReasoningEvent>(parsed);
+  REQUIRE(reasoning.size() == 1);
+  REQUIRE(reasoning[0]->summary == "first\nsecond");
+  REQUIRE(reasoning[0]->content == "details");
+  const auto display = loupe::make_display_messages(parsed.session);
+  REQUIRE(display.size() == 3);
+  REQUIRE(display.back().content == "answer");
+}
+
+TEST_CASE("parse paginated Codex command file and MCP tool completions",
+          "[codex_parser][paginated]") {
+  const auto parsed = loupe::parse_session_content(
+      R"({"type":"session_meta","payload":{"id":"thread","history_mode":"paginated"}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"CommandExecution","id":"cmd1","command":["sh","-c","echo error"],"cwd":"/work","parsed_cmd":[],"source":"agent","status":"failed","aggregated_output":"error","exit_code":-1}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"FileChange","id":"patch1","changes":{"a.txt":{"type":"add","content":"hello"}},"status":"completed","stdout":"applied","stderr":""}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"McpToolCall","id":"mcp1","server":"docs","tool":"lookup","arguments":{"key":"x"},"status":"failed","result":{"content":[{"type":"text","text":"not found"}],"isError":true}}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"DynamicToolCall","id":"dynamic1","tool":"render","namespace":"ui","arguments":null,"status":"completed","content_items":[{"type":"inputText","text":"rendered"},{"type":"inputImage","imageUrl":"data:image/png;base64,eA=="}],"success":true}}})",
+      loupe::LogFormat::Codex);
+  REQUIRE(parsed.diagnostics.empty());
+  const auto calls = events<loupe::ToolCallEvent>(parsed);
+  const auto results = events<loupe::ToolResultEvent>(parsed);
+  REQUIRE(calls.size() == 4);
+  REQUIRE(results.size() == 4);
+  CHECK(calls[0]->input == R"(["sh","-c","echo error"])");
+  CHECK(calls[0]->input_is_json);
+  CHECK(results[0]->exit_code == -1);
+  CHECK(results[0]->is_error);
+  CHECK(calls[1]->name == "apply_patch");
+  CHECK(calls[2]->name == "lookup");
+  CHECK(calls[2]->name_space == "docs");
+  CHECK(results[2]->is_error);
+  CHECK(std::get<loupe::TextContent>(results[2]->output[0]).text
+        == "not found");
+  CHECK(calls[3]->input == "null");
+  CHECK(calls[3]->input_is_json);
+  REQUIRE(results[3]->output.size() == 2);
+  CHECK(std::get<loupe::TextContent>(results[3]->output[0]).text == "rendered");
+  const auto &image = std::get<loupe::ImageContent>(results[3]->output[1]);
+  REQUIRE(image.base64_data);
+  CHECK(*image.base64_data == "eA==");
+  CHECK_FALSE(results[3]->is_error);
+}
+
+TEST_CASE("deduplicate completed Codex items against raw response records in "
+          "either order",
+          "[codex_parser][paginated]") {
+  const std::string header =
+      R"({"type":"session_meta","payload":{"id":"thread","history_mode":"paginated"}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"task_started","turn_id":"t1"}})"
+      "\n"
+      R"({"type":"turn_context","payload":{"turn_id":"t1"}})"
+      "\n";
+  const std::string raw =
+      R"({"type":"response_item","payload":{"type":"message","id":"a1","role":"assistant","phase":"final_answer","content":[{"type":"output_text","text":"answer"}]}})"
+      "\n"
+      R"({"type":"response_item","payload":{"type":"reasoning","id":"r1","summary":[{"type":"summary_text","text":"summary"}],"encrypted_content":"secret"}})"
+      "\n"
+      R"({"type":"response_item","payload":{"type":"function_call","call_id":"cmd1","name":"exec_command","arguments":"{\"cmd\":\"ls\"}"}})"
+      "\n"
+      R"({"type":"response_item","payload":{"type":"function_call_output","call_id":"cmd1","output":"full untruncated output"}})"
+      "\n";
+  const std::string completed =
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"AgentMessage","id":"a1","phase":"final_answer","content":[{"type":"Text","text":"answer"}]}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"Reasoning","id":"r1","summary_text":["summary"],"raw_content":[]}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"CommandExecution","id":"cmd1","command":["ls"],"status":"failed","aggregated_output":"truncated","exit_code":2}}})"
+      "\n";
+  for (const bool completed_first : {false, true}) {
+    const auto parsed = loupe::parse_session_content(
+        header + (completed_first ? completed + raw : raw + completed),
+        loupe::LogFormat::Codex);
+    REQUIRE(parsed.diagnostics.empty());
+    REQUIRE(events<loupe::MessageEvent>(parsed).size() == 1);
+    const auto reasoning = events<loupe::ReasoningEvent>(parsed);
+    REQUIRE(reasoning.size() == 1);
+    REQUIRE(reasoning[0]->encrypted);
+    const auto calls = events<loupe::ToolCallEvent>(parsed);
+    const auto results = events<loupe::ToolResultEvent>(parsed);
+    REQUIRE(calls.size() == 1);
+    REQUIRE(calls[0]->name == "exec_command");
+    REQUIRE(results.size() == 1);
+    REQUIRE(results[0]->exit_code == 2);
+    REQUIRE(results[0]->is_error);
+    REQUIRE(std::get<loupe::TextContent>(results[0]->output[0]).text
+            == "full untruncated output");
+    REQUIRE(parsed.session.records.size() == 10);
+    for (const auto &record : parsed.session.records) {
+      REQUIRE_FALSE(record.raw_json.empty());
+    }
+  }
+}
+
+TEST_CASE("Codex binds the first completed turn ID to preceding raw records",
+          "[codex_parser][paginated]") {
+  const auto parsed = loupe::parse_session_content(
+      R"({"type":"session_meta","payload":{"id":"thread"}})"
+      "\n"
+      R"({"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"answer"}]}})"
+      "\n"
+      R"({"type":"response_item","payload":{"type":"function_call","call_id":"cmd","name":"exec_command","arguments":"{}"}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"AgentMessage","id":"a1","content":[{"type":"Text","text":"answer"}]}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"CommandExecution","id":"cmd","command":["ls"],"status":"completed","aggregated_output":"files","exit_code":0}}})",
+      loupe::LogFormat::Codex);
+  REQUIRE(parsed.diagnostics.empty());
+  REQUIRE(events<loupe::MessageEvent>(parsed).size() == 1);
+  REQUIRE(events<loupe::ToolCallEvent>(parsed).size() == 1);
+  REQUIRE(events<loupe::ToolResultEvent>(parsed).size() == 1);
+  const auto &completion = parsed.session.records.back();
+  REQUIRE(completion.events.size() == 1);
+  REQUIRE(completion.events.front().fragment_index == 0);
+  REQUIRE(
+      std::get<loupe::ToolResultEvent>(completion.events.front().payload).name
+      == "exec_command");
+}
+
+TEST_CASE(
+    "parse additional Codex TurnItem variants and preserve future extensions",
+    "[codex_parser][paginated]") {
+  const auto parsed = loupe::parse_session_content(
+      R"({"type":"session_meta","payload":{"id":"thread","history_mode":"paginated"}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"WebSearch","id":"web","query":"Codex","action":{"type":"search","query":"Codex"},"results":[{"title":"result"}]}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"ImageGeneration","id":"image","status":"completed","result":"data:image/png;base64,eA=="}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"CollabAgentToolCall","id":"agent","tool":"spawn_agent","status":"completed","sender_thread_id":"thread","receiver_thread_ids":["child"],"agents_states":{"child":"running"}}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"FunctionCallOutput","id":"call-output","name":"read","output":"file contents"}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"HookPrompt","id":"hook","fragments":[{"text":"hook input","hookRunId":"h1"}]}}})"
+      "\n"
+      R"({"type":"compacted","payload":{"message":"preserved summary"}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"ContextCompaction","id":"compact"}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"Extension","id":"future","payload":{"type":"new_extension"}}}})",
+      loupe::LogFormat::Codex);
+  REQUIRE(parsed.diagnostics.empty());
+  const auto calls = events<loupe::ToolCallEvent>(parsed);
+  REQUIRE(calls.size() == 3);
+  REQUIRE(calls.at(0)->name == "web_search");
+  REQUIRE(calls.at(1)->name == "image_generation");
+  REQUIRE(calls.at(2)->name == "spawn_agent");
+  REQUIRE(events<loupe::ToolResultEvent>(parsed).size() == 4);
+  const auto messages = events<loupe::MessageEvent>(parsed);
+  REQUIRE(messages.size() == 1);
+  REQUIRE(messages.front()->role == loupe::Role::Developer);
+  REQUIRE(std::get<loupe::TextContent>(messages.front()->content.front()).text
+          == "hook input");
+  const auto compactions = events<loupe::CompactionEvent>(parsed);
+  REQUIRE(compactions.size() == 1);
+  REQUIRE(compactions.front()->summary == "preserved summary");
+  REQUIRE(events<loupe::UnknownEvent>(parsed).size() == 1);
+}
+
+TEST_CASE("Codex completed-message deduplication is one-to-one and turn scoped",
+          "[codex_parser][paginated]") {
+  const auto parsed = loupe::parse_session_content(
+      R"({"type":"session_meta","payload":{"id":"thread"}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"task_started","turn_id":"t1"}})"
+      "\n"
+      R"({"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"same"}]}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"AgentMessage","id":"a1","content":[{"type":"Text","text":"same"}]}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t1","item":{"type":"AgentMessage","id":"a2","content":[{"type":"Text","text":"same"}]}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"turn_started","turn_id":"t2"}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","turn_id":"t2","item":{"type":"AgentMessage","id":"a3","content":[{"type":"Text","text":"same"}]}}})",
+      loupe::LogFormat::Codex);
+  REQUIRE(parsed.diagnostics.empty());
+  REQUIRE(events<loupe::MessageEvent>(parsed).size() == 3);
+  REQUIRE(parsed.session.records[3].events.empty());
+  REQUIRE_FALSE(parsed.session.records[4].events.empty());
+  REQUIRE_FALSE(parsed.session.records[6].events.empty());
+}
+
+TEST_CASE("retain unknown and malformed Codex completed items without losing "
+          "following messages",
+          "[codex_parser][paginated]") {
+  const auto parsed = loupe::parse_session_content(
+      R"({"type":"session_meta","payload":{"id":"thread"}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":null}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"FutureItem","id":"future","data":{"keep":true}}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"AgentMessage","id":"bad","content":"wrong type"}}})"
+      "\n"
+      R"({"type":"event_msg","payload":{"type":"item_completed","item":{"type":"AgentMessage","content":[{"type":"Text","text":"recover"}]}}})",
+      loupe::LogFormat::Codex);
+  REQUIRE_FALSE(parsed.has_fatal_error());
+  REQUIRE(parsed.session.records.size() == 5);
+  REQUIRE(events<loupe::UnknownEvent>(parsed).size() == 3);
+  REQUIRE(parsed.diagnostics.size() == 3);
+  const auto messages = loupe::make_display_messages(parsed.session);
+  REQUIRE(messages.size() == 1);
+  REQUIRE(messages[0].content == "recover");
+}
 
 TEST_CASE("parse Codex rollout records into semantic events",
           "[codex_parser]") {

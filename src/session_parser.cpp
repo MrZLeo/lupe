@@ -153,6 +153,21 @@ DiagnosticIdentity diagnostic_identity(const Diagnostic &diagnostic) {
   };
 }
 
+void append_validation(SessionParseResult &result) {
+  auto validation = validate_session(result.session);
+  std::unordered_set<DiagnosticIdentity, DiagnosticIdentityHash>
+      reported_diagnostics;
+  reported_diagnostics.reserve(result.diagnostics.size() + validation.size());
+  for (const auto &diagnostic : result.diagnostics) {
+    reported_diagnostics.insert(diagnostic_identity(diagnostic));
+  }
+  for (auto &diagnostic : validation) {
+    if (reported_diagnostics.insert(diagnostic_identity(diagnostic)).second) {
+      result.diagnostics.push_back(std::move(diagnostic));
+    }
+  }
+}
+
 } // namespace
 
 SessionParseResult
@@ -200,18 +215,7 @@ parse_session_content(std::string_view content, LogFormat format) {
         "content was auto-detected; pass --format to override");
   }
 
-  auto validation = validate_session(result.session);
-  std::unordered_set<DiagnosticIdentity, DiagnosticIdentityHash>
-      reported_diagnostics;
-  reported_diagnostics.reserve(result.diagnostics.size() + validation.size());
-  for (const auto &diagnostic : result.diagnostics) {
-    reported_diagnostics.insert(diagnostic_identity(diagnostic));
-  }
-  for (auto &diagnostic : validation) {
-    if (reported_diagnostics.insert(diagnostic_identity(diagnostic)).second) {
-      result.diagnostics.push_back(std::move(diagnostic));
-    }
-  }
+  append_validation(result);
   return result;
 }
 
@@ -262,7 +266,16 @@ parse_session_file(const std::filesystem::path &path, LogFormat format) {
     content = std::move(decoded.text);
   }
 
-  SessionParseResult result = parse_session_content(content, format);
+  SessionParseResult result;
+  const bool codex = format == LogFormat::Codex
+                  || (format == LogFormat::Auto
+                      && detect_log_format(content) == LogFormat::Codex);
+  if (codex) {
+    result = detail::parse_codex_rollout_file(path, content);
+    append_validation(result);
+  } else {
+    result = parse_session_content(content, format);
+  }
   if (dropped_torn_tail) {
     detail::add_diagnostic(
         result, DiagnosticSeverity::Warning, DiagnosticCode::IncompleteStream,

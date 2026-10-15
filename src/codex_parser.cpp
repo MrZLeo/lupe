@@ -5,6 +5,7 @@
 #include "json_helpers.hpp"
 #include "jsonl_reader.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -38,16 +39,42 @@ struct CanonicalMessage {
   std::size_t turn_index{0};
 };
 
+struct CompletedItem {
+  std::size_t record_index{0};
+  std::size_t turn_index{0};
+  std::string id;
+};
+
 struct CodexParserState {
   bool saw_session_meta{false};
   std::size_t recognized_records{0};
   std::size_t turn_index{0};
+  std::string turn_id;
   std::string provider;
   std::string model;
   std::unordered_map<std::string, std::string> tool_names;
   std::vector<PendingLegacyMessage> legacy_messages;
   std::vector<CanonicalMessage> canonical_messages;
+  std::vector<CanonicalMessage> response_records;
+  std::vector<CompletedItem> completed_items;
 };
+
+void update_turn(element payload, CodexParserState &state, bool boundary) {
+  const auto id = string_at(payload, "/turn_id");
+  if (id && !id->empty()) {
+    if (*id != state.turn_id) {
+      // A truncated/older rollout may first reveal the current turn ID in a
+      // completion, after its raw response records have already been read.
+      if (boundary || !state.turn_id.empty()) {
+        ++state.turn_index;
+      }
+      state.turn_id = *id;
+    }
+  } else if (boundary) {
+    ++state.turn_index;
+    state.turn_id.clear();
+  }
+}
 
 std::optional<std::string>
 first_string_at(element value,
@@ -140,13 +167,25 @@ ContentBlock parse_content_block(element value) {
   }
 
   const std::string type = string_at(value, "/type").value_or("unknown");
-  if (type == "input_text" || type == "output_text" || type == "text") {
+  if (type == "input_text"
+      || type == "output_text"
+      || type == "text"
+      || type == "Text"
+      || type == "inputText") {
     return TextContent{.text = string_at(value, "/text").value_or("")};
   }
 
-  if (type == "input_image" || type == "image") {
+  if (type == "input_image"
+      || type == "image"
+      || type == "inputImage"
+      || type == "local_image") {
     std::string url =
-        first_string_at(value, {"/image_url", "/url"}).value_or("");
+        first_string_at(value, {"/image_url", "/imageUrl", "/url", "/path"})
+            .value_or("");
+    // File-backed image references have no URL; keep the file ID inspectable.
+    if (url.empty() && string_at(value, "/file_id")) {
+      return UnknownContent{.native_type = type, .json = json_text(value)};
+    }
     const bool inline_data = std::string_view{url}.starts_with("data:");
     const auto base64_data = inline_base64_data(url);
     std::string mime_type =
@@ -253,8 +292,11 @@ text_items_at(element owner, std::string_view pointer) {
 
   std::vector<std::string> parts;
   for (const auto item : values) {
-    if (const auto text = string_at(item, "/text"); text) {
-      parts.push_back(*text);
+    std::string_view text;
+    if (item.get_string().get(text) == simdjson::SUCCESS) {
+      parts.emplace_back(text);
+    } else if (const auto nested_text = string_at(item, "/text")) {
+      parts.push_back(*nested_text);
     }
   }
   return parts;
@@ -409,7 +451,13 @@ std::string response_item_call_id(element payload, std::string_view name,
 
 bool failed_status(element payload) {
   const std::string status = string_at(payload, "/status").value_or("");
-  return status == "failed" || status == "error" || status == "incomplete";
+  return status == "failed"
+      || status == "error"
+      || status == "incomplete"
+      || status == "declined"
+      || status == "interrupted"
+      || status == "cancelled"
+      || status == "canceled";
 }
 
 void parse_web_search_call(element payload, RecordIR &record,
@@ -641,9 +689,276 @@ void save_legacy_message(element payload, std::string_view subtype,
   });
 }
 
-void parse_event_message(element payload, std::size_t record_index,
-                         RecordIR &record, CodexParserState &state) {
+// TurnItem uses PascalCase tags (unlike ResponseItem and codex exec --json).
+// Most fields are snake_case, but McpToolCall and dynamic output blocks use
+// camelCase. Keep these schemas separate rather than lowercasing arbitrary
+// JSON.
+void parse_completed_item(element payload, std::size_t record_index,
+                          RecordIR &record, SessionParseResult &result,
+                          CodexParserState &state) {
+  element item;
+  if (!element_at(payload, "/item", item)
+      || item.type() != element_type::OBJECT
+      || !string_at(item, "/type")) {
+    add_diagnostic(result, DiagnosticSeverity::Warning,
+                   DiagnosticCode::MissingRequiredField,
+                   "Codex item_completed requires an object item with a type",
+                   record.source_line);
+    append_event(record,
+                 UnknownEvent{.native_type = "event_msg.item_completed"});
+    return;
+  }
+
+  const std::string type = *string_at(item, "/type");
+  const std::string id = string_at(item, "/id").value_or("");
+  if (id.empty()) {
+    add_diagnostic(result, DiagnosticSeverity::Warning,
+                   DiagnosticCode::MissingRequiredField,
+                   "Codex completed item is missing id", record.source_line);
+  }
+  // item.id identifies a semantic item, not a unique rollout record. In
+  // particular it can equal a response_item ID; do not copy it to native_id.
+  state.completed_items.push_back({
+      .record_index = record_index,
+      .turn_index = state.turn_index,
+      .id = id,
+  });
+
+  if (type == "UserMessage" || type == "AgentMessage") {
+    MessageEvent message{
+        .role = type == "UserMessage" ? Role::User : Role::Assistant,
+        .raw_role = type == "UserMessage" ? "user" : "assistant",
+        .provider = state.provider,
+        .model = state.model,
+        .phase = string_at(item, "/phase").value_or(""),
+        .content = {},
+    };
+    element content;
+    if (!element_at(item, "/content", content)
+        || content.type() != element_type::ARRAY) {
+      add_diagnostic(result, DiagnosticSeverity::Warning,
+                     DiagnosticCode::InvalidFieldType,
+                     "Codex completed message content must be an array",
+                     record.source_line);
+      append_event(record,
+                   UnknownEvent{.native_type = "item_completed." + type});
+      return;
+    }
+    append_content_value(content, message.content);
+    append_event(record, std::move(message));
+    return;
+  }
+  if (type == "Reasoning") {
+    append_event(record,
+                 ReasoningEvent{
+                     .summary = join_text(text_items_at(item, "/summary_text")),
+                     .content = join_text(text_items_at(item, "/raw_content")),
+                     .encrypted = false,
+                 });
+    return;
+  }
+  if (type == "Plan"
+      || type == "HookPrompt"
+      || type == "EnteredReviewMode"
+      || type == "ExitedReviewMode") {
+    std::string text;
+    Role role = Role::Assistant;
+    if (type == "HookPrompt") {
+      text = join_text(text_items_at(item, "/fragments"));
+      role = Role::Developer;
+    } else if (type == "EnteredReviewMode") {
+      text = string_at(item, "/user_facing_hint").value_or("");
+      role = Role::System;
+    } else if (type == "ExitedReviewMode") {
+      text = json_at(item, "/review_output");
+      role = Role::System;
+    } else {
+      text = string_at(item, "/text").value_or("");
+    }
+    append_event(record, MessageEvent{
+                             .role = role,
+                             .raw_role = std::string{role_name(role)},
+                             .provider = state.provider,
+                             .model = state.model,
+                             .phase = type == "Plan" ? "plan" : "",
+                             .content = {TextContent{.text = std::move(text)}},
+                         });
+    return;
+  }
+  if (type == "ContextCompaction") {
+    append_event(record, CompactionEvent{
+                             .summary = {},
+                             .tokens_before = std::nullopt,
+                             .retained_from_record = std::nullopt,
+                             .replacement_context_json = {},
+                             .trigger = "context_compaction",
+                         });
+    return;
+  }
+  if (type == "ImageGeneration") {
+    parse_image_generation_call(item, record, state);
+    return;
+  }
+  if (type == "SubAgentActivity") {
+    append_event(record, MetadataEvent{
+                             .name = "codex.SubAgentActivity",
+                             .value = json_text(item),
+                         });
+    return;
+  }
+
+  const bool is_tool = type == "CommandExecution"
+                    || type == "FileChange"
+                    || type == "McpToolCall"
+                    || type == "DynamicToolCall"
+                    || type == "CollabAgentToolCall"
+                    || type == "WebSearch"
+                    || type == "ImageView"
+                    || type == "FunctionCallOutput";
+  if (!is_tool) {
+    append_event(record, UnknownEvent{.native_type = "item_completed." + type});
+    return;
+  }
+
+  const std::string call_id = response_item_call_id(item, type, record);
+  ToolCallEvent call{
+      .call_id = call_id,
+      .name = {},
+      .name_space = "codex",
+      .input = {},
+      .input_is_json = false,
+  };
+  ToolResultEvent output{
+      .call_id = call_id,
+      .name = {},
+      .output = {},
+      .is_error = failed_status(item),
+      .exit_code = std::nullopt,
+  };
+  bool has_output = false;
+  auto input_at = [&](std::string_view pointer) {
+    auto [input, is_json] = structured_input_at(item, pointer, false);
+    call.input = std::move(input);
+    call.input_is_json = is_json;
+  };
+  auto output_at = [&](std::string_view pointer) {
+    element field;
+    if (element_at(item, pointer, field)
+        && field.type() != element_type::NULL_VALUE) {
+      append_tool_output(field, output.output);
+      has_output = true;
+    }
+  };
+  auto text_output_at = [&](std::string_view pointer) {
+    element field;
+    if (element_at(item, pointer, field)
+        && field.type() != element_type::NULL_VALUE) {
+      output.output.emplace_back(TextContent{
+          .text = string_at(item, pointer).value_or(json_text(field)),
+      });
+      has_output = true;
+    }
+  };
+
+  if (type == "CommandExecution") {
+    call.name = "command_execution";
+    input_at("/command");
+    output_at("/aggregated_output");
+    element code;
+    std::int64_t exit = 0;
+    if (element_at(item, "/exit_code", code)
+        && code.get_int64().get(exit) == simdjson::SUCCESS
+        && exit >= std::numeric_limits<int>::min()
+        && exit <= std::numeric_limits<int>::max()) {
+      output.exit_code = static_cast<int>(exit);
+      output.is_error = output.is_error || exit != 0;
+      has_output = true;
+    }
+  } else if (type == "FileChange") {
+    call.name = "apply_patch";
+    input_at("/changes");
+    text_output_at("/changes");
+    output_at("/stdout");
+    output_at("/stderr");
+  } else if (type == "McpToolCall" || type == "DynamicToolCall") {
+    call.name = string_at(item, "/tool").value_or("");
+    call.name_space =
+        string_at(item, type == "McpToolCall" ? "/server" : "/namespace")
+            .value_or("");
+    input_at("/arguments");
+    output_at(type == "McpToolCall" ? "/result" : "/content_items");
+    if (type == "McpToolCall") {
+      text_output_at("/result/structuredContent");
+      output.is_error =
+          output.is_error
+          || first_bool_at(item, {"/result/isError", "/result/is_error"})
+                 .value_or(false);
+    }
+    const auto error = first_string_at(item, {"/error/message", "/error"});
+    if (error) {
+      output.output.emplace_back(TextContent{.text = *error});
+      output.is_error = true;
+      has_output = true;
+    }
+    if (const auto success = bool_at(item, "/success")) {
+      output.is_error = output.is_error || !*success;
+      has_output = true;
+    }
+  } else if (type == "CollabAgentToolCall") {
+    call.name = string_at(item, "/tool").value_or("collab");
+    call.name_space = "codex.collab";
+    call.input = json_text(item);
+    call.input_is_json = true;
+    text_output_at("/agents_states");
+  } else if (type == "WebSearch") {
+    call.name = "web_search";
+    input_at("/action");
+    if (call.input.empty()) {
+      input_at("/query");
+    }
+    text_output_at("/results");
+  } else if (type == "ImageView") {
+    call.name = "view_image";
+    input_at("/path");
+    if (const auto path = string_at(item, "/path")) {
+      output.output.emplace_back(ImageContent{
+          .mime_type = {},
+          .url = *path,
+          .inline_data = false,
+          .base64_data = nullptr,
+      });
+      has_output = true;
+    }
+  } else {
+    call.name = string_at(item, "/name").value_or("");
+    output_at("/output");
+  }
+
+  output.name = call.name;
+  if (type != "FunctionCallOutput") {
+    const auto [name, inserted] =
+        state.tool_names.try_emplace(call_id, call.name);
+    static_cast<void>(inserted);
+    output.name = name->second;
+    append_event(record, std::move(call));
+  }
+  if (has_output || output.is_error) {
+    append_event(record, std::move(output));
+  }
+}
+
+void
+parse_event_message(element payload, std::size_t record_index, RecordIR &record,
+                    SessionParseResult &result, CodexParserState &state) {
   const std::string subtype = string_at(payload, "/type").value_or("unknown");
+  if (subtype == "task_started" || subtype == "turn_started") {
+    update_turn(payload, state, true);
+  }
+  if (subtype == "item_completed") {
+    update_turn(payload, state, false);
+    parse_completed_item(payload, record_index, record, result, state);
+    return;
+  }
   if (subtype == "token_count") {
     parse_token_count(payload, record);
     return;
@@ -676,6 +991,27 @@ void parse_session_meta(element payload, RecordIR &record,
   result.session.parent_session_ref =
       first_string_at(payload, {"/forked_from_id", "/parent_thread_id"});
   state.provider = string_at(payload, "/model_provider").value_or("");
+
+  if (const auto mode = string_at(payload, "/history_mode")) {
+    append_event(record, MetadataEvent{
+                             .name = "codex.history_mode",
+                             .value = *mode,
+                         });
+    if (*mode != "legacy" && *mode != "paginated") {
+      add_diagnostic(result, DiagnosticSeverity::Warning,
+                     DiagnosticCode::UnsupportedVersion,
+                     "unknown Codex history_mode: " + *mode,
+                     record.source_line);
+    }
+  }
+  element base;
+  if (element_at(payload, "/history_base", base)
+      && base.type() != element_type::NULL_VALUE) {
+    append_event(record, MetadataEvent{
+                             .name = "codex.history_base",
+                             .value = json_text(base),
+                         });
+  }
 
   if (result.session.session_id.empty()) {
     add_diagnostic(result, DiagnosticSeverity::Warning,
@@ -836,6 +1172,10 @@ void parse_rollout_record(element document, RecordIR &record,
     ++state.recognized_records;
     record.native_id = string_at(document, "/id").value_or("");
     parse_response_item(document, record, result, state, record_index);
+    state.response_records.push_back({
+        .record_index = record_index,
+        .turn_index = state.turn_index,
+    });
     return;
   }
 
@@ -862,12 +1202,20 @@ void parse_rollout_record(element document, RecordIR &record,
     parse_session_meta(payload, record, result, state);
   } else if (*type == "response_item") {
     parse_response_item(payload, record, result, state, record_index);
+    state.response_records.push_back({
+        .record_index = record_index,
+        .turn_index = state.turn_index,
+    });
   } else if (*type == "event_msg") {
-    parse_event_message(payload, record_index, record, state);
+    parse_event_message(payload, record_index, record, result, state);
   } else if (*type == "compacted") {
     parse_compacted(payload, record);
+    state.response_records.push_back({
+        .record_index = record_index,
+        .turn_index = state.turn_index,
+    });
   } else if (*type == "turn_context") {
-    ++state.turn_index;
+    update_turn(payload, state, true);
     state.model = string_at(payload, "/model").value_or(state.model);
     if (result.session.cwd.empty()) {
       result.session.cwd = string_at(payload, "/cwd").value_or("");
@@ -969,59 +1317,182 @@ bool is_same_turn_duplicate(
   return false;
 }
 
+bool
+same_completed_event(const EventIR &completed, EventIR &raw, bool same_id) {
+  if (const auto *message = std::get_if<MessageEvent>(&completed.payload)) {
+    const auto *other = std::get_if<MessageEvent>(&raw.payload);
+    return other != nullptr
+        && (same_message(*message, *other)
+            || (same_id
+                && message->role == other->role
+                && message->phase == other->phase));
+  }
+  if (const auto *reasoning = std::get_if<ReasoningEvent>(&completed.payload)) {
+    const auto *other = std::get_if<ReasoningEvent>(&raw.payload);
+    return other != nullptr
+        && (same_id
+            || ((!reasoning->summary.empty() || !reasoning->content.empty())
+                && reasoning->summary == other->summary
+                && reasoning->content == other->content));
+  }
+  if (const auto *call = std::get_if<ToolCallEvent>(&completed.payload)) {
+    const auto *other = std::get_if<ToolCallEvent>(&raw.payload);
+    return other != nullptr
+        && !call->call_id.empty()
+        && call->call_id == other->call_id;
+  }
+  if (const auto *output = std::get_if<ToolResultEvent>(&completed.payload)) {
+    auto *other = std::get_if<ToolResultEvent>(&raw.payload);
+    if (other == nullptr
+        || output->call_id.empty()
+        || output->call_id != other->call_id) {
+      return false;
+    }
+    // Raw outputs can be longer than the persistence-truncated TurnItem;
+    // retain them, but enrich their otherwise missing completion status.
+    other->is_error = other->is_error || output->is_error;
+    if (!other->exit_code) {
+      other->exit_code = output->exit_code;
+    }
+    return true;
+  }
+  return std::holds_alternative<CompactionEvent>(completed.payload)
+      && std::holds_alternative<CompactionEvent>(raw.payload);
+}
+
+void deduplicate_completed_items(SessionIR &session, CodexParserState &state) {
+  std::unordered_map<std::size_t, std::vector<std::size_t>> responses_by_turn;
+  for (const auto &response : state.response_records) {
+    responses_by_turn[response.turn_index].push_back(response.record_index);
+  }
+  std::unordered_map<std::size_t, std::unordered_set<std::size_t>> matched;
+  for (const auto &item : state.completed_items) {
+    auto &record = session.records.at(item.record_index);
+    const auto candidates = responses_by_turn.find(item.turn_index);
+    std::erase_if(record.events, [&](const EventIR &event) {
+      if (candidates == responses_by_turn.end()) {
+        return false;
+      }
+      for (const auto index : candidates->second) {
+        auto &response = session.records.at(index);
+        for (auto &raw : response.events) {
+          if (matched[index].contains(raw.fragment_index)) {
+            continue;
+          }
+          if (same_completed_event(event, raw,
+                                   !item.id.empty()
+                                       && item.id == response.native_id)) {
+            matched[index].insert(raw.fragment_index);
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+    std::size_t fragment_index = 0;
+    for (auto &event : record.events) {
+      event.fragment_index = fragment_index++;
+    }
+    if (message_event(record) != nullptr) {
+      state.canonical_messages.push_back({
+          .record_index = item.record_index,
+          .turn_index = item.turn_index,
+      });
+    }
+  }
+}
+
 } // namespace
 
 SessionParseResult parse_codex_rollout(std::string_view content) {
+  const std::array sources{CodexRolloutSource{.content = content, .path = {}}};
+  auto result = parse_codex_rollout_sources(sources);
+  for (const auto &record : result.session.records) {
+    for (const auto &event : record.events) {
+      const auto *metadata = std::get_if<MetadataEvent>(&event.payload);
+      if (metadata != nullptr && metadata->name == "codex.history_base") {
+        add_diagnostic(result, DiagnosticSeverity::Warning,
+                       DiagnosticCode::IncompleteStream,
+                       "Codex history_base is unresolved when parsing content; "
+                       "open the rollout with parse_session_file to load "
+                       "inherited history",
+                       record.source_line);
+      }
+    }
+  }
+  return result;
+}
+
+SessionParseResult
+parse_codex_rollout_sources(std::span<const CodexRolloutSource> sources) {
   SessionParseResult result;
   result.session.format = LogFormat::Codex;
 
   CodexParserState state;
-  JsonlReader reader{content};
   simdjson::dom::parser parser;
-  JsonlLine line;
+  for (const auto &source : sources) {
+    // Each file starts with metadata, but the requested (last) file owns the
+    // session identity. Keep model/tool/turn context across inherited prefixes.
+    state.saw_session_meta = false;
+    const auto first_record = result.session.records.size();
+    const auto first_diagnostic = result.diagnostics.size();
+    JsonlReader reader{source.content};
+    JsonlLine line;
+    while (reader.next(line)) {
+      const simdjson::padded_string padded{line.json};
+      element document;
+      const auto error = parser.parse(padded).get(document);
+      if (error) {
+        result.session.records.push_back(make_invalid_record(
+            result.session.records.size(), line.source_line, line.raw));
+        add_diagnostic(
+            result, DiagnosticSeverity::Error, DiagnosticCode::InvalidJson,
+            "invalid JSON: " + std::string{simdjson::error_message(error)},
+            line.source_line);
+        continue;
+      }
 
-  while (reader.next(line)) {
-    const simdjson::padded_string padded{line.json};
-    element document;
-    const auto error = parser.parse(padded).get(document);
-    if (error) {
-      result.session.records.push_back(
-          make_invalid_record(line.sequence, line.source_line, line.raw));
-      add_diagnostic(
-          result, DiagnosticSeverity::Error, DiagnosticCode::InvalidJson,
-          "invalid JSON: " + std::string{simdjson::error_message(error)},
-          line.source_line);
-      continue;
-    }
+      RecordIR record{
+          .sequence = result.session.records.size(),
+          .source_line = line.source_line,
+          .native_sequence = uint_at(document, "/ordinal"),
+          .native_type = {},
+          .native_id = {},
+          .native_parent_id = std::nullopt,
+          .navigation_parent_id = std::nullopt,
+          .timestamp = string_at(document, "/timestamp").value_or(""),
+          .raw_json = std::string{line.raw},
+          .events = {},
+      };
 
-    RecordIR record{
-        .sequence = line.sequence,
-        .source_line = line.source_line,
-        .native_sequence = uint_at(document, "/ordinal"),
-        .native_type = {},
-        .native_id = {},
-        .native_parent_id = std::nullopt,
-        .navigation_parent_id = std::nullopt,
-        .timestamp = string_at(document, "/timestamp").value_or(""),
-        .raw_json = std::string{line.raw},
-        .events = {},
-    };
+      if (document.type() != element_type::OBJECT) {
+        record.native_type = "non_object";
+        append_event(record, UnknownEvent{.native_type = "non_object"});
+        result.session.records.push_back(std::move(record));
+        add_diagnostic(
+            result, DiagnosticSeverity::Error, DiagnosticCode::ExpectedObject,
+            "Codex rollout record must be a JSON object", line.source_line);
+        continue;
+      }
 
-    if (document.type() != element_type::OBJECT) {
-      record.native_type = "non_object";
-      append_event(record, UnknownEvent{.native_type = "non_object"});
+      const std::size_t record_index = result.session.records.size();
+      parse_rollout_record(document, record, result, state, record_index);
       result.session.records.push_back(std::move(record));
-      add_diagnostic(
-          result, DiagnosticSeverity::Error, DiagnosticCode::ExpectedObject,
-          "Codex rollout record must be a JSON object", line.source_line);
-      continue;
     }
-
-    const std::size_t record_index = result.session.records.size();
-    parse_rollout_record(document, record, result, state, record_index);
-    result.session.records.push_back(std::move(record));
+    for (std::size_t index = first_record;
+         index < result.session.records.size(); ++index) {
+      result.session.records.at(index).source_path = source.path;
+    }
+    for (std::size_t index = first_diagnostic;
+         index < result.diagnostics.size(); ++index) {
+      if (!source.path.empty()) {
+        auto &diagnostic = result.diagnostics.at(index);
+        diagnostic.message = source.path.string() + ": " + diagnostic.message;
+      }
+    }
   }
 
+  deduplicate_completed_items(result.session, state);
   std::unordered_set<std::size_t> matched_canonical_records;
   for (auto &pending : state.legacy_messages) {
     if (pending.record_index < result.session.records.size()

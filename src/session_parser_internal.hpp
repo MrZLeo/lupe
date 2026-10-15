@@ -1,6 +1,7 @@
 #ifndef LOUPE_SESSION_PARSER_INTERNAL_HPP_
 #define LOUPE_SESSION_PARSER_INTERNAL_HPP_
 
+#include <span>
 #include <string_view>
 
 #include "loupe/session_ir.hpp"
@@ -8,7 +9,16 @@
 namespace loupe::detail {
 
 SessionParseResult parse_pi_session(std::string_view content);
+struct CodexRolloutSource {
+  std::string_view content;
+  std::filesystem::path path;
+};
+
 SessionParseResult parse_codex_rollout(std::string_view content);
+SessionParseResult
+parse_codex_rollout_sources(std::span<const CodexRolloutSource> sources);
+SessionParseResult parse_codex_rollout_file(const std::filesystem::path &path,
+                                            std::string_view content);
 SessionParseResult parse_codex_exec_stream(std::string_view content);
 SessionParseResult parse_claudecode_transcript(std::string_view content);
 SessionParseResult parse_deepseek_harness_session(std::string_view content);
