@@ -15,7 +15,7 @@ struct ParseResult {
   std::vector<std::string> errors;
   // Structured view of the same diagnostics flattened into `errors`, so
   // the UI can render severity and source line separately.
-  std::vector<Diagnostic> diagnostics;
+  std::vector<Diagnostic> diagnostics{};
 };
 
 ParseResult parse_log_content(std::string_view content);

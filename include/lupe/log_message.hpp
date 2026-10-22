@@ -21,7 +21,7 @@ struct LogMessage {
   std::string timestamp;
   std::string raw_type;
   std::size_t source_line{0};
-  std::vector<DisplayImage> images;
+  std::vector<DisplayImage> images{};
 };
 } // namespace lupe
 

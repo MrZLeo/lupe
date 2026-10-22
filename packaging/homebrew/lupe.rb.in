@@ -5,7 +5,7 @@ class Lupe < Formula
   sha256 "@MACOS_SHA256@"
   license "BSD-3-Clause"
 
-  depends_on macos: :ventura
+  depends_on macos: :sequoia
 
   resource "license" do
     url "https://raw.githubusercontent.com/mrzleo/lupe/@TAG@/LICENSE"

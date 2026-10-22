@@ -31,6 +31,8 @@ set(exe_sources
   src/line_frame.hpp
   src/message_overview.cpp
   src/message_overview.hpp
+  src/text_wrap.cpp
+  src/text_wrap.hpp
   ${sources}
 )
 
@@ -70,5 +72,6 @@ set(test_sources
   src/session_parser_test.cpp
   src/structured_text_test.cpp
   src/synchronized_output_test.cpp
+  src/text_wrap_test.cpp
   src/zstd_decode_test.cpp
 )

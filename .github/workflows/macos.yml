@@ -28,8 +28,8 @@ jobs:
 
     - name: configure
       # Match the release workflow's deployment floor so libc++ availability
-      # regressions (e.g. std::ranges::iota needs 13.3) fail here, not at tag time.
-      run: cmake -Bbuild -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/$INSTALL_LOCATION -DCPM_SOURCE_CACHE=$CPM_SOURCE_CACHE
+      # regressions fail here rather than when publishing a release.
+      run: cmake -Bbuild -G Ninja -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/$INSTALL_LOCATION -DCPM_SOURCE_CACHE=$CPM_SOURCE_CACHE
       
     - name: build
       run: cmake --build build

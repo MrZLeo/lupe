@@ -70,12 +70,29 @@ struct ToolCallEvent {
   bool input_is_json{false};
 };
 
+// Execution metadata for calls made inside a tool. These are not independent
+// model-issued calls, and their outputs need not be present in the transcript.
+struct NestedToolCall {
+  ToolCallEvent call;
+  std::string status;
+  std::optional<double> duration_ms;
+  std::string error;
+  std::optional<std::uint64_t> omitted_input_bytes;
+  std::optional<double> cost;
+};
+
 struct ToolResultEvent {
   std::string call_id;
   std::string name;
   std::vector<ContentBlock> output;
   bool is_error{false};
   std::optional<int> exit_code;
+  // Explicit defaults keep existing aggregate initializers warning-free.
+  // NOLINTNEXTLINE(readability-redundant-member-init)
+  std::vector<NestedToolCall> nested_calls{};
+  std::optional<bool> nested_calls_complete{std::nullopt};
+  // NOLINTNEXTLINE(readability-redundant-member-init)
+  std::string full_output_path{};
 };
 
 struct CompactionEvent {

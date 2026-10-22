@@ -6,6 +6,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -113,4 +114,50 @@ TEST_CASE("Image references survive display projection",
   REQUIRE(messages.front().images.size() == 1);
   CHECK(messages.front().images.front().mime_type == "image/png");
   CHECK(messages.front().images.front().url == "https://example.com/image.png");
+}
+
+TEST_CASE("Nested call metadata stays on its owning tool result",
+          "[message_projection]") {
+  lupe::SessionIR session;
+  lupe::RecordIR record;
+  record.native_type = "tool_result";
+  record.source_line = 7;
+
+  lupe::NestedToolCall nested;
+  nested.call.call_id = "outer/1";
+  nested.call.name = "read";
+  nested.call.name_space = "example";
+  nested.call.input = R"({"path":"literal\n...)"
+                      "\n";
+  nested.status = "cancelled";
+  nested.duration_ms = 12.5;
+  nested.error = "interrupted\npartial work retained";
+  nested.omitted_input_bytes = 9000;
+  nested.cost = 0.00000001;
+
+  lupe::ToolResultEvent result;
+  result.call_id = "outer";
+  result.name = "batch";
+  result.output = {lupe::TextContent{.text = "output stays unchanged"}};
+  result.nested_calls = {nested};
+  result.nested_calls_complete = false;
+  result.full_output_path = "/tmp/output.txt";
+  lupe::append_event(record, std::move(result));
+  session.records.push_back(std::move(record));
+
+  const auto messages = lupe::make_display_messages(session);
+  REQUIRE(messages.size() == 1);
+  const auto &message = messages.front();
+  CHECK(message.role == "tool");
+  CHECK(message.content == "output stays unchanged");
+  CHECK(message.source_line == 7);
+  REQUIRE(message.annotations.size() == 4);
+  CHECK(message.annotations[0] == "result for batch [outer]");
+  CHECK(message.annotations[1] == "nested calls: incomplete");
+  CHECK(message.annotations[2]
+        == "nested call example::read [outer/1] status=cancelled"
+           " duration=12.5ms cost=1e-08\nfull arguments omitted (9000 bytes)\n"
+               + nested.call.input
+               + "\nerror: interrupted\npartial work retained");
+  CHECK(message.annotations[3] == "full output: /tmp/output.txt");
 }

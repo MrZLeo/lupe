@@ -40,6 +40,7 @@
 #include "lupe/synchronized_output.hpp"
 #include "lupe/version.hpp"
 #include "message_overview.hpp"
+#include "text_wrap.hpp"
 
 namespace {
 struct CliOptions {
@@ -54,17 +55,9 @@ struct CliParseResult {
   int exit_code{EXIT_SUCCESS};
 };
 
-struct StyledSegment {
-  std::string text;
-  ftxui::Color color{ftxui::Color::Default};
-  bool bold{false};
-  bool italic{false};
-  bool dim{false};
-  bool code{false};
-  bool link{false};
-};
-
-using DisplayLine = std::vector<StyledSegment>;
+using lupe::append_wrapped_line;
+using lupe::DisplayLine;
+using lupe::StyledSegment;
 
 struct ImageDisplayRow {
   std::size_t image_index{0};
@@ -223,14 +216,6 @@ std::string short_path(const std::filesystem::path &path) {
     return filename;
   }
   return path.string();
-}
-
-std::string clipped_content(const std::string &content) {
-  constexpr std::size_t kMaxContentLength = 12000;
-  if (content.size() <= kMaxContentLength) {
-    return content;
-  }
-  return content.substr(0, kMaxContentLength) + "\n[content clipped]";
 }
 
 std::string clipped_label(std::string_view text) {
@@ -609,84 +594,6 @@ std::string expand_tabs(std::string_view text) {
 // intersecting the viewport, so the per-frame cost tracks the viewport size
 // instead of the document size. Laying out the whole document with nested
 // flexboxes on every frame was the scrolling bottleneck.
-
-struct WrapToken {
-  std::string text;
-  StyledSegment style;
-  bool space{false};
-  std::size_t cells{0};
-};
-
-std::vector<WrapToken>
-tokenize_for_wrap(const std::vector<StyledSegment> &segments) {
-  std::vector<WrapToken> tokens;
-  for (const StyledSegment &segment : segments) {
-    std::size_t index = 0;
-    while (index < segment.text.size()) {
-      const std::size_t start = index;
-      const bool space = segment.text[index] == ' ';
-      while (index < segment.text.size()
-             && (segment.text[index] == ' ') == space) {
-        ++index;
-      }
-      WrapToken token;
-      token.text = segment.text.substr(start, index - start);
-      token.style = segment;
-      token.style.text.clear();
-      token.space = space;
-      token.cells = static_cast<std::size_t>(ftxui::string_width(token.text));
-      tokens.push_back(std::move(token));
-    }
-  }
-  return tokens;
-}
-
-// Greedily wrap styled text into display lines of at most `width` cells.
-// `first_prefix` prefixes the first line; wrapped lines are indented by
-// `continuation_cells` spaces, producing the hanging-indent look lists,
-// quotes, and code blocks had under flexbox. Words wider than `width`
-// overflow their line and are clipped at the screen edge, also matching the
-// old flexbox behavior.
-void append_wrapped_line(std::vector<DisplayLine> &out,
-                         const std::vector<StyledSegment> &segments,
-                         StyledSegment first_prefix,
-                         std::size_t continuation_cells, std::size_t width) {
-  DisplayLine line;
-  std::size_t cells = 0;
-  if (!first_prefix.text.empty()) {
-    cells = static_cast<std::size_t>(ftxui::string_width(first_prefix.text));
-    line.push_back(std::move(first_prefix));
-  }
-
-  // Leading spaces of the logical line are significant (indented code);
-  // only spaces landing exactly on a wrap point are dropped.
-  bool fresh_line = false;
-  for (const WrapToken &token : tokenize_for_wrap(segments)) {
-    if (token.space && fresh_line) {
-      continue; // Spaces landing on a wrap point are dropped.
-    }
-    if (cells > 0 && cells + token.cells > width) {
-      out.push_back(std::move(line));
-      line = DisplayLine{};
-      if (continuation_cells > 0) {
-        line.push_back(StyledSegment{
-            .text = std::string(continuation_cells, ' '),
-        });
-      }
-      cells = continuation_cells;
-      fresh_line = true;
-      if (token.space) {
-        continue;
-      }
-    }
-    StyledSegment piece = token.style;
-    piece.text = token.text;
-    line.push_back(std::move(piece));
-    cells += token.cells;
-    fresh_line = false;
-  }
-  out.push_back(std::move(line));
-}
 
 // Clip text to `width` cells at a glyph boundary.
 std::string clip_to_width(std::string_view text, std::size_t width) {
@@ -1223,11 +1130,12 @@ fold_summary_line(const lupe::LogMessage &message, std::size_t width) {
   // lines) so the preview matches what unfolding would show.
   const bool verbatim_body =
       message.role == "tool" || message.role == "unknown";
-  const std::string clipped = clipped_content(
-      verbatim_body ? message.content
-                    : lupe::format_structured_text(message.content));
+  const std::string formatted =
+      verbatim_body ? std::string{}
+                    : lupe::format_structured_text(message.content);
+  const std::string_view content = verbatim_body ? message.content : formatted;
 
-  std::string_view rest{clipped};
+  std::string_view rest{content};
   std::string_view preview;
   while (!rest.empty()) {
     const std::size_t end = rest.find('\n');
@@ -1271,7 +1179,7 @@ fold_summary_line(const lupe::LogMessage &message, std::size_t width) {
     hidden = 1;
   } else {
     hidden = static_cast<std::size_t>(
-                 std::count(clipped.begin(), clipped.end(), '\n'))
+                 std::count(content.begin(), content.end(), '\n'))
            + 1;
   }
   for (const std::string &annotation : message.annotations) {
@@ -1374,15 +1282,16 @@ void append_message_display_lines(const lupe::LogMessage &message,
   // strings, regexes, code).
   const bool verbatim_body =
       message.role == "tool" || message.role == "unknown";
-  const std::string clipped = clipped_content(
-      verbatim_body ? message.content
-                    : lupe::format_structured_text(message.content));
+  const std::string formatted =
+      verbatim_body ? std::string{}
+                    : lupe::format_structured_text(message.content);
+  const std::string_view content = verbatim_body ? message.content : formatted;
   if (message.content.empty()) {
     out.push_back({StyledSegment{.text = "(empty)", .dim = true}});
   } else if (verbatim_body) {
-    append_verbatim_lines(clipped, width, out);
+    append_verbatim_lines(content, width, out);
   } else {
-    append_markdown_lines(clipped, width, out);
+    append_markdown_lines(content, width, out);
   }
 
   for (const std::string &annotation : message.annotations) {
@@ -1421,7 +1330,7 @@ bool ensure_display_lines(AppState &state) {
   state.message_rows.clear();
   state.image_rows.clear();
   const std::size_t wrap_width = static_cast<std::size_t>(
-      std::max(16, terminal_width - lupe::kMessageOverviewWidth - 3));
+      std::max(1, terminal_width - lupe::kMessageOverviewWidth - 3));
   for (std::size_t index = 0; index < state.parsed.messages.size(); ++index) {
     const std::size_t first_row = state.display_lines.size();
     const bool folded = index < state.folded.size() && state.folded[index];
@@ -1465,8 +1374,8 @@ message_row_owner(const std::vector<std::pair<std::size_t, std::size_t>> &rows,
 // segment contains the query, so the highlighted match lands on screen the
 // way vim keeps the match line visible after n/N. kNoRow when whole-block
 // centering applies — no active match, the block fits the viewport, or the
-// match is in no single segment (spanning wrapped lines or the content
-// clip), where the block anchor at least shows the message.
+// match is in no single segment (spanning wrapped lines or styled segments),
+// where the block anchor at least shows the message.
 std::size_t search_focus_row(const AppState &state, std::string_view query,
                              int viewport_rows) {
   if (query.empty()

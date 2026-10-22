@@ -10,6 +10,7 @@
 #include <cstddef>
 
 #include <cstdint>
+#include <format>
 #include <map>
 #include <optional>
 #include <simdjson.h>
@@ -96,15 +97,50 @@ std::string tool_call_annotation(const ToolCallEvent &call) {
     rendered += call.name;
   }
 
-  if (!call.input.empty()) {
+  if (!call.input.empty() && call.input_is_json) {
     rendered += " ";
-    rendered +=
-        call.input_is_json ? format_structured_text(call.input) : call.input;
+    rendered += format_structured_text(call.input);
   }
   if (!call.call_id.empty()) {
     rendered += " [";
     rendered += call.call_id;
     rendered += "]";
+  }
+  if (!call.input.empty() && !call.input_is_json) {
+    // Freeform scripts belong on their own lines, without JSON escaping or
+    // structured-text normalization (which would corrupt literal \n).
+    rendered += '\n';
+    rendered += call.input;
+  }
+  return rendered;
+}
+
+std::string nested_call_annotation(const NestedToolCall &nested) {
+  ToolCallEvent label = nested.call;
+  label.input.clear();
+  std::string rendered = "nested " + tool_call_annotation(label);
+  if (!nested.status.empty()) {
+    rendered += " status=" + nested.status;
+  }
+  if (nested.duration_ms) {
+    rendered += std::format(" duration={}ms", *nested.duration_ms);
+  }
+  if (nested.cost) {
+    rendered += std::format(" cost={}", *nested.cost);
+  }
+  if (nested.omitted_input_bytes) {
+    rendered += "\nfull arguments omitted ("
+              + std::to_string(*nested.omitted_input_bytes)
+              + " bytes)";
+  }
+  if (!nested.call.input.empty()) {
+    rendered += '\n';
+    rendered += nested.call.input_is_json
+                  ? format_structured_text(nested.call.input)
+                  : nested.call.input;
+  }
+  if (!nested.error.empty()) {
+    rendered += "\nerror: " + nested.error;
   }
   return rendered;
 }
@@ -326,10 +362,22 @@ make_display_messages(const SessionIR &session, const DisplayOptions &options) {
           annotation += std::to_string(*tool_result->exit_code);
         }
 
+        std::vector<std::string> annotations{std::move(annotation)};
+        if (tool_result->nested_calls_complete == false) {
+          annotations.emplace_back("nested calls: incomplete");
+        }
+        for (const auto &nested : tool_result->nested_calls) {
+          annotations.push_back(nested_call_annotation(nested));
+        }
+        if (!tool_result->full_output_path.empty()) {
+          annotations.push_back("full output: "
+                                + tool_result->full_output_path);
+        }
+
         messages.push_back(LogMessage{
             .role = "tool",
             .content = join_content(tool_result->output, options.show_unknown),
-            .annotations = {std::move(annotation)},
+            .annotations = std::move(annotations),
             .timestamp = event_timestamp(event, record),
             .raw_type = record.native_type,
             .source_line = record.source_line,

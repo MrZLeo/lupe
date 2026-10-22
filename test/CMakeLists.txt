@@ -61,7 +61,19 @@ foreach(file ${test_sources})
       ${${CMAKE_PROJECT_NAME}_TEST_LIB}
   )
 
-  if(test_name STREQUAL "line_frame_test")
+  if(test_name STREQUAL "text_wrap_test")
+    target_sources(
+      ${test_name}_Tests
+      PRIVATE
+        "${CMAKE_SOURCE_DIR}/src/text_wrap.cpp"
+    )
+    target_include_directories(
+      ${test_name}_Tests
+      PRIVATE
+        "${CMAKE_SOURCE_DIR}/src"
+    )
+    target_link_libraries(${test_name}_Tests PRIVATE ftxui::screen)
+  elseif(test_name STREQUAL "line_frame_test")
     target_sources(
       ${test_name}_Tests
       PRIVATE

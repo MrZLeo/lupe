@@ -5,8 +5,11 @@
 #include "json_helpers.hpp"
 #include "jsonl_reader.hpp"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <optional>
 #include <simdjson.h>
 #include <string>
@@ -284,13 +287,22 @@ void append_assistant_message(RecordIR &record, simdjson::dom::element message,
         input = json_text(arguments);
       }
 
+      const std::string name = string_at(block, "/name").value_or("");
+      bool input_is_json = true;
+      if (name == "codemode") {
+        if (auto code = string_at(block, "/arguments/code")) {
+          input = std::move(*code);
+          input_is_json = false;
+        }
+      }
+
       append_event(record,
                    ToolCallEvent{
                        .call_id = string_at(block, "/id").value_or(""),
-                       .name = string_at(block, "/name").value_or(""),
+                       .name = name,
                        .name_space = "pi",
                        .input = std::move(input),
-                       .input_is_json = true,
+                       .input_is_json = input_is_json,
                    },
                    timestamp);
       continue;
@@ -311,6 +323,144 @@ void append_assistant_message(RecordIR &record, simdjson::dom::element message,
   append_usage(record, message, "/usage", UsageScope::Message, timestamp);
 }
 
+NestedToolCall parse_nested_call(simdjson::dom::element block, bool preview) {
+  NestedToolCall nested;
+  nested.call.call_id = string_at(block, "/id").value_or("");
+  nested.call.name = string_at(block, "/name").value_or("");
+  nested.call.name_space = "pi";
+  if (preview) {
+    // Pi's display preview can be truncated in the middle of JSON. Keep it
+    // verbatim rather than treating it as the full structured arguments.
+    nested.call.input = string_at(block, "/args").value_or("");
+  } else {
+    nested.call.input = json_at(block, "/arguments");
+    nested.call.input_is_json = !nested.call.input.empty();
+    nested.omitted_input_bytes = uint_at(block, "/argumentsBytes");
+  }
+  nested.status = string_at(block, "/status").value_or("");
+  nested.duration_ms = double_at(block, "/durationMs");
+  nested.error = string_at(block, "/error").value_or("");
+  nested.cost = double_at(block, "/cost");
+  return nested;
+}
+
+void merge_nested_preview(NestedToolCall &nested, NestedToolCall preview) {
+  if (nested.call.name.empty()) {
+    nested.call.name = std::move(preview.call.name);
+  }
+  if (nested.call.input.empty()) {
+    nested.call.input = std::move(preview.call.input);
+    nested.call.input_is_json = preview.call.input_is_json;
+  }
+  // The common record uses error/unfinished for cancelled calls; codemode's
+  // preview can distinguish cancellation from an ordinary tool failure.
+  if (nested.status.empty()
+      || (preview.status == "cancelled"
+          && (nested.status == "error" || nested.status == "unfinished"))) {
+    nested.status = std::move(preview.status);
+  }
+  if (!nested.duration_ms) {
+    nested.duration_ms = preview.duration_ms;
+  }
+  if (nested.error.empty()) {
+    nested.error = std::move(preview.error);
+  }
+  if (!nested.cost) {
+    nested.cost = preview.cost;
+  }
+}
+
+void order_nested_previews(std::vector<NestedToolCall> &calls,
+                           std::size_t recorded_count,
+                           const std::vector<std::size_t> &preview_order) {
+  if (calls.size() == recorded_count) {
+    return;
+  }
+
+  // Insert preview-only rows (notably models.*) before their next recorded
+  // tool anchor instead of moving them all to the end. Keep the common
+  // record's order, including deeper nested calls absent from the preview.
+  std::vector<std::vector<std::size_t>> before(recorded_count + 1);
+  std::vector<std::size_t> pending;
+  std::size_t floor = 0;
+  for (const auto index : preview_order) {
+    if (index >= recorded_count) {
+      pending.push_back(index);
+      continue;
+    }
+    auto &slot = before.at(std::max(index, floor));
+    slot.insert(slot.end(), pending.begin(), pending.end());
+    pending.clear();
+    floor = std::max(floor, index + 1);
+  }
+  before.back().insert(before.back().end(), pending.begin(), pending.end());
+
+  std::vector<NestedToolCall> ordered;
+  ordered.reserve(calls.size());
+  for (std::size_t index = 0; index <= recorded_count; ++index) {
+    for (const auto preview : before.at(index)) {
+      ordered.push_back(std::move(calls.at(preview)));
+    }
+    if (index < recorded_count) {
+      ordered.push_back(std::move(calls.at(index)));
+    }
+  }
+  calls = std::move(ordered);
+}
+
+void
+append_nested_calls(ToolResultEvent &event, simdjson::dom::element message) {
+  event.nested_calls_complete = bool_at(message, "/nestedCalls/complete");
+  std::map<std::string, std::size_t> call_indices;
+  std::size_t recorded_count = 0;
+  std::vector<std::size_t> preview_order;
+  auto append_calls = [&](std::string_view pointer, bool preview) {
+    simdjson::dom::element calls_value;
+    simdjson::dom::array calls;
+    if (!element_at(message, pointer, calls_value)
+        || calls_value.get_array().get(calls) != simdjson::SUCCESS) {
+      return;
+    }
+    for (const auto block : calls) {
+      if (block.type() != simdjson::dom::element_type::OBJECT) {
+        continue;
+      }
+      auto nested = parse_nested_call(block, preview);
+      const auto &id = nested.call.call_id;
+      // Unfinished preview rows can share a /? placeholder. They are not
+      // stable identifiers and must not be collapsed into one call.
+      if (!id.empty() && !id.ends_with("/?")) {
+        const auto [it, inserted] =
+            call_indices.emplace(id, event.nested_calls.size());
+        if (!inserted) {
+          merge_nested_preview(event.nested_calls.at(it->second),
+                               std::move(nested));
+          if (preview && it->second < recorded_count) {
+            preview_order.push_back(it->second);
+          }
+          continue;
+        }
+      }
+      if (preview) {
+        preview_order.push_back(event.nested_calls.size());
+      }
+      event.nested_calls.push_back(std::move(nested));
+    }
+  };
+
+  // Prefer the common record's full arguments and execution order. Codemode
+  // details provide older-session fallback, cancellation, and models.* calls,
+  // which are not present in nestedCalls. Never invent nested tool outputs.
+  append_calls("/nestedCalls/calls", false);
+  recorded_count = event.nested_calls.size();
+  if (event.name == "codemode") {
+    append_calls("/details/calls", true);
+    order_nested_previews(event.nested_calls, recorded_count, preview_order);
+    event.full_output_path =
+        string_at(message, "/details/fullOutputPath").value_or("");
+  }
+}
+
 void append_tool_result(RecordIR &record, simdjson::dom::element message,
                         const std::string &timestamp) {
   ToolResultEvent event{
@@ -321,6 +471,7 @@ void append_tool_result(RecordIR &record, simdjson::dom::element message,
       .exit_code = std::nullopt,
   };
   append_basic_content(message, "/content", event.output);
+  append_nested_calls(event, message);
   append_event(record, std::move(event), timestamp);
   append_usage(record, message, "/usage", UsageScope::Message, timestamp);
 }

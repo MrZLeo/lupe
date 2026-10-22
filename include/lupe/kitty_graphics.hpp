@@ -15,8 +15,8 @@ struct KittyImage {
   int format{100}; // PNG (100) or packed RGBA (32).
   int width{0};
   int height{0};
-  std::string payload; // Canonical base64, without whitespace.
-  std::string error;
+  std::string payload{}; // Canonical base64, without whitespace.
+  std::string error{};
 
   explicit operator bool() const { return error.empty() && !payload.empty(); }
 };

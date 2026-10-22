@@ -27,9 +27,9 @@ struct MarkdownSpan {
 struct MarkdownBlock {
   MarkdownBlockKind kind{MarkdownBlockKind::Paragraph};
   int level{0};
-  std::string marker;
-  std::string code;
-  std::vector<MarkdownSpan> spans;
+  std::string marker{};
+  std::string code{};
+  std::vector<MarkdownSpan> spans{};
 };
 
 std::vector<MarkdownBlock> parse_markdown_text(std::string_view text);

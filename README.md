@@ -16,7 +16,7 @@ Install the latest release with Homebrew:
 brew install mrzleo/tap/lupe
 ```
 
-The Formula supports macOS 13 or newer on Apple Silicon and Intel. Pre-built
+The Formula supports macOS 15 or newer on Apple Silicon and Intel. Pre-built
 binaries are checksummed and require no compiler or separate runtime libraries.
 
 ## Supported formats
@@ -30,7 +30,7 @@ fatal diagnostic asking for an explicit `--format`.
 | `--format` | Input |
 | --- | --- |
 | `auto` (default) | Detect `pi`, `codex`, `codex-exec`, `claudecode`, or `deepseek-harness` from the first records |
-| `pi` | Pi session JSONL, including parent-linked branches |
+| `pi` | Pi session JSONL, including parent-linked branches and codemode |
 | `codex` | Codex session rollout JSONL |
 | `codex-exec` | `codex exec --json` event-stream JSONL |
 | `claudecode` | Claude Code transcript JSONL |
@@ -45,6 +45,18 @@ lupe codex-exec.jsonl
 lupe ~/.claude/projects/.../session.jsonl
 lupe ~/.dsh/sessions/.../session.jsonl.zstd
 ```
+
+Pi codemode calls show the JavaScript source directly, including options,
+line breaks, and literal escapes. Tool results retain the script's output,
+images, and usage, and show nested-call arguments, status, duration, errors,
+and model-call cost when recorded. Common `nestedCalls` records are merged
+with codemode's `details.calls` previews by call ID, preferring full arguments
+and avoiding duplicate rows. Model-call previews retain their position between
+recorded tool calls; older details-only logs are supported too.
+Omitted arguments, incomplete call records, and full-output file paths remain
+visible. Nested calls stay attached to their owning result: Pi does not
+persist their full outputs, so Lupe does not invent separate tool messages.
+`codemode-store` entries remain metadata, not conversation messages.
 
 `codex` and `codex-exec` are separate formats. The former reads the persisted
 session rollout, while the latter reads the machine-readable stdout event
@@ -218,7 +230,7 @@ a `SHA256SUMS` file:
 | --- | --- | --- |
 | Linux x86_64 | `lupe-v0.7.0-linux-x86_64.tar.gz` | Fully static glibc executable |
 | Windows x86_64 | `lupe-v0.7.0-windows-x86_64.zip` | Static MSVC runtime |
-| macOS 13+ | `lupe-v0.7.0-macos-universal.tar.gz` | Universal arm64/x86_64 executable; system libraries only |
+| macOS 15+ | `lupe-v0.7.0-macos-universal.tar.gz` | Universal arm64/x86_64 executable; system libraries only |
 
 These new archives contain one executable named `lupe` or `lupe.exe`, the
 project license, and third-party license notices. They require no separately
@@ -249,6 +261,12 @@ tar -xzf lupe-v0.7.0-linux-x86_64.tar.gz
 - `e`: toggle the diagnostics view when the log produced diagnostics
 - `b` / `-`: return to the file browser
 - `q`: quit
+
+Unfolded message bodies and tool annotations wrap to the terminal width,
+including long paths, URLs, JSON, scripts, and text without spaces. Lupe does
+not truncate message bodies by length; scroll or search to reach the tail.
+Headers and folded summaries remain single-line previews. Content already
+truncated by the original agent or tool cannot be recovered from the log.
 
 ### Inline images
 
